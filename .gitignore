@@ -1,0 +1,7 @@
+*~
+*.pyc
+*.swp
+*.so
+/.cache
+/build/
+/gensrc/
