@@ -1032,7 +1032,8 @@ parse_file_func(PyObject *self, PyObject *args)
 {
     PyObject *fname_obj;
     PyObject *sep_obj = NULL;
-    const char *line;
+    PyObject *res;
+    void *filedata;
     const char *fname;
     char sep;
     int nthreads = 4;
@@ -1052,12 +1053,24 @@ parse_file_func(PyObject *self, PyObject *args)
     }
 
     fname = PyString_AsString(fname_obj);
-    stat(fname, &stat_buf);
-    fd = open(fname, O_RDONLY);
+    if ((fd = open(fname, O_RDONLY)) < 0) {
+        return PyErr_Format(PyExc_IOError, "%s: could not open", fname);
+    }
 
-    line = (const char *)mmap(NULL, stat_buf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    fstat(fd, &stat_buf);
 
-    return parse_csv(line, stat_buf.st_size, sep, nthreads, flags, nheaders);
+    if ((filedata = mmap(NULL, stat_buf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
+        close(fd);
+        return PyErr_Format(PyExc_IOError, "%s: mmap failed", fname);
+    }
+
+    res = parse_csv((const char *)filedata, stat_buf.st_size, sep, nthreads, flags, nheaders);
+
+    munmap(filedata, stat_buf.st_size);
+
+    close(fd);
+
+    return res;
 }
 
 static PyMethodDef mod_methods[] = {
