@@ -27,7 +27,7 @@ clean:
 	rm -rf $$(find . \( -name '*.so' -o -name '__pycache__' \) -print) gensrc build .cache
 
 test:	all
-	export PYTHONPATH=$$(readlink -f $(CURDIR)/build/lib*); cd tests; python -m pytest --pdb -sv test_fastcsv.py test_headers.py test_edge.py test_file.py test_format.py test_numbers.py
+	export PYTHONPATH=$$(readlink -f $(CURDIR)/build/lib*); cd tests; python -m pytest --pdb -sv test_fastcsv.py test_headers.py test_edge.py test_file.py test_api.py test_format.py test_numbers.py
 
 benchmark:	all
 	export PYTHONPATH=$$(readlink -f $(CURDIR)/build/lib*); cd benchmarks; ./many_doubles.py -n 20000000 --nthreads=4

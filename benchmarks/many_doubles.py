@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.DEBUG)
 import argparse
 import datetime
 
-import camog
+import camog._cfastcsv as cfastcsv
 
 _logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ def main():
     for i in xrange(args.nsamples):
         t0 = datetime.datetime.now()
 
-        cols = camog.parse_csv(data, ',', args.nthreads)[1]
+        cols = cfastcsv.parse_csv(data, ',', args.nthreads)[1]
 
         took = (datetime.datetime.now() - t0).total_seconds()
         total += took

@@ -6,7 +6,7 @@ A csv parser.
 ```
 import camog
 
-headers, columns = camog.parse_csv('foobar.csv')
+headers, columns = camog.load('foobar.csv', nthreads=4)
 ```
 
 ## How should I build it?
@@ -22,5 +22,5 @@ Nobody. It's not ready yet.
 ## Where's the doc?
 
 ```
-grep -A10 '^parse_csv_func' src/fastcsv.c
+cat camog/_csv.py
 ```

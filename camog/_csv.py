@@ -12,4 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ._csv import load
+import multiprocessing
+
+from . import _cfastcsv
+
+def load(filename, sep=',', headers=True, nthreads=None, flags=0):
+    if nthreads is None:
+        nthreads = multiprocessing.cpu_count()
+
+    return _cfastcsv.parse_file(filename, sep, nthreads, flags, 1 if headers else 0)

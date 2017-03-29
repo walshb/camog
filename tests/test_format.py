@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 import numpy as np
 
-import camog
+import camog._cfastcsv as cfastcsv
 
 _logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ def _do_parse(i):
 
     _logger.debug('%r', csv_str)
 
-    res = camog.parse_csv(csv_str, ',', 2)[1]
+    res = cfastcsv.parse_csv(csv_str, ',', 2)[1]
 
     py_res = _parse_py_csv(csv_str)
 

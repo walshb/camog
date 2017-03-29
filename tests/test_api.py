@@ -12,4 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ._csv import load
+import os
+import tempfile
+import shutil
+
+import numpy as np
+
+import camog
+
+def test_load():
+    dirname = tempfile.mkdtemp()
+    fname = os.path.join(dirname, 'test.csv')
+
+    with open(fname, 'wb') as fp:
+        fp.write('abc,def,ghi\n123,456,789\n')
+
+    headers, data = camog.load(fname)
+
+    shutil.rmtree(dirname)
+
+    assert headers == ['abc', 'def', 'ghi']
+    assert np.all(data[0] == np.array([123]))
+    assert np.all(data[1] == np.array([456]))
+    assert np.all(data[2] == np.array([789]))

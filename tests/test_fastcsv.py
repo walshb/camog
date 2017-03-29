@@ -14,10 +14,10 @@
 
 import numpy as np
 
-import camog
+import camog._cfastcsv as cfastcsv
 
 def _do_parse_csv(csv_str, sep=',', nthreads=4):
-    return camog.parse_csv(csv_str, sep, nthreads)[1]
+    return cfastcsv.parse_csv(csv_str, sep, nthreads)[1]
 
 
 def test_fastcsv1():

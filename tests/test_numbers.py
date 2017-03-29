@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 import numpy as np
 
-import camog
+import camog._cfastcsv as cfastcsv
 
 _logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def _equal(v1, v2):
 
 
 def _parse(s, excel_quotes=True):
-    res = camog.parse_csv(s, ',', 1, 1 if excel_quotes else 0)
+    res = cfastcsv.parse_csv(s, ',', 1, 1 if excel_quotes else 0)
     return res[1][0][0]
 
 
