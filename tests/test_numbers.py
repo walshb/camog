@@ -16,8 +16,6 @@ import csv
 import cStringIO
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
-
 import numpy as np
 
 import camog._cfastcsv as cfastcsv
@@ -68,8 +66,13 @@ def _py_csv_parse(s, excel_quotes=True):
 
 
 def _assert_parse_same(s):
-    assert _equal(_parse(s, True), _py_csv_parse(s, True))
-    assert _equal(_parse(s, False), _py_csv_parse(s, False))
+    res = _parse(s, True)
+    py_res = _py_csv_parse(s, True)
+    assert _equal(res, py_res), '%r => %r vs %r' % (s, res, py_res)
+
+    res = _parse(s, False)
+    py_res = _py_csv_parse(s, False)
+    assert _equal(res, py_res), '%r => %r vs %r' % (s, res, py_res)
 
 
 def test_py_csv_parse_1():
@@ -129,6 +132,6 @@ def _do_parse(i):
 
 def test_combinations():
     n = _maxlen * len(_chars) ** _maxlen
-    _logger.debug('n = %s', n)
+    _logger.info('n = %s', n)
     for i in xrange(n):
         _do_parse(i)
