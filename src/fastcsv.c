@@ -24,7 +24,9 @@
 #include "math.h"
 #include "numpy/arrayobject.h"
 
-#include "powers.i"
+#include "osx_pthread_barrier.h"
+
+#include "powers.h"
 
 #define EXPANDER_MAX 1024
 
@@ -537,11 +539,11 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
             }
             NEXTCHAR_INQUOTES(goodend);
 
-#include "parser_inquotes.i"
+#include "parser_inquotes.h"
 
         } else {
 
-#include "parser.i"
+#include "parser.h"
 
         }
 

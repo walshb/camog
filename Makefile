@@ -19,9 +19,9 @@ all:	parser
 
 parser:
 	mkdir -p gensrc
-	python ./generator/powers.py >gensrc/powers.i
-	python ./generator/parser.py --nextchar=NEXTCHAR_NOQUOTES --label-prefix=noquotes >gensrc/parser.i
-	python ./generator/parser.py --nextchar=NEXTCHAR_INQUOTES --label-prefix=inquotes >gensrc/parser_inquotes.i
+	python ./generator/powers.py >gensrc/powers.h
+	python ./generator/parser.py --nextchar=NEXTCHAR_NOQUOTES --label-prefix=noquotes >gensrc/parser.h
+	python ./generator/parser.py --nextchar=NEXTCHAR_INQUOTES --label-prefix=inquotes >gensrc/parser_inquotes.h
 
 clean:
 	rm -rf $$(find . \( -name '*.so' -o -name '__pycache__' \) -print) gensrc build .cache
