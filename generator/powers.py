@@ -22,9 +22,9 @@ maxexpo = 309   # exclusive
 sys.stdout.write('double powers[] = {')
 for expo in xrange(minexpo, maxexpo):
     if expo == minexpo:
-        sys.stdout.write('0.0d')
+        sys.stdout.write('0.0')
     else:
-        sys.stdout.write('1e%sd' % expo)
+        sys.stdout.write('1.0e%s' % expo)
     if expo < maxexpo - 1:
         sys.stdout.write(',')
     if (expo - minexpo) % 8 == 7:
