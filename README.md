@@ -1,6 +1,8 @@
 Camóg
 =====
 
+[![Build Status](https://travis-ci.org/walshb/camog.svg?branch=master)](https://travis-ci.org/walshb/camog)
+
 A csv parser.
 
 ```
