@@ -13,25 +13,29 @@
 # limitations under the License.
 
 import os
-import tempfile
-import shutil
+import pytest
 
 import numpy as np
 
 import camog
 
+import _testhelper
+
 def test_load():
-    dirname = tempfile.mkdtemp()
-    fname = os.path.join(dirname, 'test.csv')
+    data = 'abc,def,ghi\n123,456,789\n'
 
-    with open(fname, 'wb') as fp:
-        fp.write('abc,def,ghi\n123,456,789\n')
-
-    headers, data = camog.load(fname)
-
-    shutil.rmtree(dirname)
+    with _testhelper.TempCsvFile(data) as fname:
+        headers, data = camog.load(fname)
 
     assert headers == ['abc', 'def', 'ghi']
     assert np.all(data[0] == np.array([123]))
     assert np.all(data[1] == np.array([456]))
     assert np.all(data[2] == np.array([789]))
+
+
+def test_load_invalid_nthreads():
+    data = 'abc,def,ghi\n123,456,789\n'
+
+    with pytest.raises(ValueError):
+        with _testhelper.TempCsvFile(data) as fname:
+            camog.load(fname, nthreads=0)

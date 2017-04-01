@@ -21,16 +21,13 @@ import numpy as np
 
 import camog._cfastcsv as cfastcsv
 
+import _testhelper
+
 def test_simple_file():
-    dirname = tempfile.mkdtemp()
-    fname = os.path.join(dirname, 'test.csv')
+    data = 'abc,def,ghi\n123,456,789\n'
 
-    with open(fname, 'wb') as fp:
-        fp.write('abc,def,ghi\n123,456,789\n')
-
-    headers, data = cfastcsv.parse_file(fname, ',', 4, 0, 1)
-
-    shutil.rmtree(dirname)
+    with _testhelper.TempCsvFile(data) as fname:
+        headers, data = cfastcsv.parse_file(fname, ',', 4, 0, 1)
 
     assert headers == ['abc', 'def', 'ghi']
     assert np.all(data[0] == np.array([123]))
