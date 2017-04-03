@@ -28,7 +28,7 @@
 
 #include "powers.h"
 
-#define EXPANDER_MAX 1024
+#define LINKED_MAX 1024
 
 #define COL_TYPE_INT 1
 #define COL_TYPE_DOUBLE 2
@@ -40,21 +40,21 @@
 
 typedef uint32_t width_t;
 
-typedef struct expander_link_s {
+typedef struct linked_link_s {
     char *ptr;
-    char data[EXPANDER_MAX];
-    struct expander_link_s *next;
-} ExpanderLink;
+    char data[LINKED_MAX];
+    struct linked_link_s *next;
+} LinkedLink;
 
 typedef struct {
-    ExpanderLink *first;
-    ExpanderLink *last;
+    LinkedLink *first;
+    LinkedLink *last;
     int own_data;
     char *first_data;
-} ExpanderBuf;
+} LinkedBuf;
 
 typedef struct {
-    ExpanderBuf buf;
+    LinkedBuf buf;
     width_t width;
     int first_row;
     int type;
@@ -63,10 +63,10 @@ typedef struct {
 typedef struct {
     int chunk_idx;
     const char *buf;
-    const char *bufend;
-    const char *softend;
+    const char *buf_end;
+    const char *soft_end;
     Column columns[256];
-    ExpanderBuf offset_buf;
+    LinkedBuf offset_buf;
     int ncols;
     int nrows;
     char *arr_ptrs[256];
@@ -96,7 +96,7 @@ typedef struct {
 #define NEXTCHAR_NOQUOTES(L) \
     do {                     \
         ++p;                 \
-        if (p >= bufend) {   \
+        if (p >= buf_end) {  \
             goto L;          \
         }                    \
         c = *p;              \
@@ -105,14 +105,14 @@ typedef struct {
 #define NEXTCHAR_INQUOTES(L)                    \
     do {                                        \
         ++p;                                    \
-        if (p >= bufend) {                      \
+        if (p >= buf_end) {                     \
             goto L;                             \
         }                                       \
         c = *p;                                 \
         if (c == '"' && nquotes == 1) {         \
             ++cellp;                            \
             ++p;                                \
-            if (p >= bufend) {                  \
+            if (p >= buf_end) {                 \
                 goto L;                         \
             }                                   \
             c = *p;                             \
@@ -123,9 +123,9 @@ typedef struct {
     } while (0)
 
 
-#define EXPANDER_INIT(B, T)                                             \
+#define LINKED_INIT(B, T)                                               \
     do {                                                                \
-        ExpanderLink *link = (ExpanderLink *)malloc(sizeof(ExpanderLink)); \
+        LinkedLink *link = (LinkedLink *)malloc(sizeof(LinkedLink));    \
         link->ptr = link->data;                                         \
         link->next = NULL;                                              \
         (B)->own_data = 1;                                              \
@@ -133,11 +133,11 @@ typedef struct {
         (B)->first_data = link->data;                                   \
     } while (0)
 
-#define EXPANDER_PUT(B, T, D)                                           \
+#define LINKED_PUT(B, T, D)                                             \
     do {                                                                \
-        ExpanderLink *link = (B)->last;                                 \
-        if (link->ptr >= link->data + EXPANDER_MAX) {                   \
-            ExpanderLink *new_link = (ExpanderLink *)malloc(sizeof(ExpanderLink)); \
+        LinkedLink *link = (B)->last;                                   \
+        if (link->ptr >= link->data + LINKED_MAX) {                     \
+            LinkedLink *new_link = (LinkedLink *)malloc(sizeof(LinkedLink)); \
             new_link->ptr = new_link->data;                             \
             new_link->next = NULL;                                      \
             (B)->last = link->next = new_link;                          \
@@ -147,11 +147,11 @@ typedef struct {
         link->ptr += sizeof(T);                                         \
     } while (0)
 
-#define EXPANDER_STEP(L, P, T, N)                                       \
+#define LINKED_STEP(L, P, T, N)                                         \
     do {                                                                \
-        if ((P) >= (L)->data + EXPANDER_MAX - (N) * sizeof(T)) {        \
-            ExpanderLink *new_link = (L)->next;                         \
-            P = new_link->data + ((P) - (L)->data + (N) * sizeof(T) - EXPANDER_MAX); \
+        if ((P) >= (L)->data + LINKED_MAX - (N) * sizeof(T)) {          \
+            LinkedLink *new_link = (L)->next;                           \
+            P = new_link->data + ((P) - (L)->data + (N) * sizeof(T) - LINKED_MAX); \
             L = new_link;                                               \
         } else {                                                        \
             P += (N) * sizeof(T);                                       \
@@ -160,15 +160,15 @@ typedef struct {
 
 #define COLUMN_INIT(C, R, T)                    \
     do {                                        \
-        EXPANDER_INIT(&(C)->buf, double);       \
+        LINKED_INIT(&(C)->buf, double);         \
         (C)->width = 0;                         \
         (C)->first_row = R;                     \
         (C)->type = T;                          \
     } while (0)
 
-#define CHANGE_TYPE(C, S, T)                    \
+#define CHANGE_TYPE(C, S, T)                                            \
     do {                                                                \
-        ExpanderLink *link;                                             \
+        LinkedLink *link;                                               \
         for (link = (C)->buf.first; link != NULL; link = link->next) {  \
             char *vp;                                                   \
             for (vp = link->data; vp < link->ptr; vp += 8) {            \
@@ -178,15 +178,15 @@ typedef struct {
     } while (0)
 
 static int
-expander_free(ExpanderBuf *expander) {
-    ExpanderLink *link;
+linked_free(LinkedBuf *linked) {
+    LinkedLink *link;
 
-    if (!expander->own_data) {
+    if (!linked->own_data) {
         return 0;
     }
-    link = expander->first;
+    link = linked->first;
     while (link != NULL) {
-        ExpanderLink *next_link = link->next;
+        LinkedLink *next_link = link->next;
         free(link);
         link = next_link;
     }
@@ -197,9 +197,9 @@ static int
 chunk_free(Chunk *chunk) {
     int j;
     for (j = 0; j < chunk->ncols; j++) {
-        expander_free(&chunk->columns[j].buf);
+        linked_free(&chunk->columns[j].buf);
     }
-    expander_free(&chunk->offset_buf);
+    linked_free(&chunk->offset_buf);
 
     return 0;
 }
@@ -207,7 +207,7 @@ chunk_free(Chunk *chunk) {
 static int
 fill_arrays(ThreadCommon *common, Chunk *chunk)
 {
-    const ExpanderLink *offset_link;
+    const LinkedLink *offset_link;
     const char *offset_ptr;
     const char *rowp;
     int col_idx;
@@ -220,8 +220,8 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
     for (col_idx = 0; col_idx < chunk->ncols; col_idx++) {
         const Column *column = &chunk->columns[col_idx];
         char *xs = chunk->arr_ptrs[col_idx];
-        const ExpanderBuf *expander = &column->buf;
-        ExpanderLink *link;
+        const LinkedBuf *linked = &column->buf;
+        LinkedLink *link;
         size_t nbytes;
 
         if (column->type == COL_TYPE_INT || column->type == COL_TYPE_DOUBLE) {
@@ -232,10 +232,10 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
                 xs += nbytes;
             }
 
-            link = expander->first;
+            link = linked->first;
             if (link != NULL) {
-                nbytes = link->ptr - expander->first_data;
-                memcpy(xs, expander->first_data, nbytes);
+                nbytes = link->ptr - linked->first_data;
+                memcpy(xs, linked->first_data, nbytes);
                 xs += nbytes;
                 link = link->next;
                 while (link != NULL) {
@@ -278,10 +278,10 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
             if (col_idx == 0) {
                 cellp = rowp;
             } else {
-                EXPANDER_STEP(offset_link, offset_ptr, width_t, col_idx - prev_col_idx);
+                LINKED_STEP(offset_link, offset_ptr, width_t, col_idx - prev_col_idx);
                 cellp = rowp + *((width_t *)offset_ptr);
             }
-            EXPANDER_STEP(offset_link, offset_ptr, width_t, 1);
+            LINKED_STEP(offset_link, offset_ptr, width_t, 1);
             cell_end = rowp + *((width_t *)offset_ptr);  /* XXX tidy up */
             cell_width = cell_end - cellp - 1;  /* excluding separator */
 
@@ -335,9 +335,9 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
 
             prev_col_idx = col_idx + 1;
         }
-        EXPANDER_STEP(offset_link, offset_ptr, width_t, row_n_cols - prev_col_idx);
+        LINKED_STEP(offset_link, offset_ptr, width_t, row_n_cols - prev_col_idx);
         rowp += *((width_t *)offset_ptr);
-        EXPANDER_STEP(offset_link, offset_ptr, width_t, 1);
+        LINKED_STEP(offset_link, offset_ptr, width_t, 1);
     }
 
     return 0;
@@ -460,10 +460,10 @@ static int
 parse_stage1(ThreadCommon *common, Chunk *chunk)
 {
     const char *buf = chunk->buf;
-    const char *bufend = chunk->bufend;
-    const char *softend = chunk->softend;  /* can go past this in middle of line */
+    const char *buf_end = chunk->buf_end;
+    const char *soft_end = chunk->soft_end;  /* can go past this in middle of line */
     const char sep = common->sep;
-    ExpanderBuf *offset_buf = &chunk->offset_buf;
+    LinkedBuf *offset_buf = &chunk->offset_buf;
     Column *columns = chunk->columns;
     const char *p = buf;
     const char *cellp = NULL;
@@ -473,14 +473,14 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
     char c = 0;
     width_t *row_np;
 
-    EXPANDER_INIT(offset_buf, width_t);
+    LINKED_INIT(offset_buf, width_t);
 
-    EXPANDER_PUT(offset_buf, width_t, 0);
+    LINKED_PUT(offset_buf, width_t, 0);
     row_np = &((width_t *)offset_buf->last->ptr)[-1];
 
     if (chunk->chunk_idx > 0) {
         while (1) {
-            if (p >= bufend) {
+            if (p >= buf_end) {
                 chunk->buf = p;
                 goto athardend;
             }
@@ -490,7 +490,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
             }
         }
         chunk->buf = p;
-        if (p >= softend) {
+        if (p >= soft_end) {
             goto atsoftend;
         }
     }
@@ -514,7 +514,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
         size_t numidx;
 #endif
 
-        if (p >= bufend) {
+        if (p >= buf_end) {
             goto athardend;
         }
         if (col_idx >= ncols) {
@@ -553,7 +553,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
 
     goodend:
         if (col_type == COL_TYPE_INT) {
-            EXPANDER_PUT(&columns[col_idx].buf, int64_t, value * sign);
+            LINKED_PUT(&columns[col_idx].buf, int64_t, value * sign);
         } else {
             expo = expo * exposign - fracexpo;
             if (expo >= 0) {
@@ -564,7 +564,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
             } else {
                 val = (double)value / powers[324 - expo] * sign;
             }
-            EXPANDER_PUT(&columns[col_idx].buf, double, val);
+            LINKED_PUT(&columns[col_idx].buf, double, val);
         }
 
         goto comma;
@@ -587,14 +587,14 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
         if (nquotes == 1) {
             while (1) {
                 ++p;
-                if (p >= bufend) {
+                if (p >= buf_end) {
                     goto comma;
                 }
                 c = *p;
                 if (c == '"') {
                     ++cellp;
                     ++p;
-                    if (p >= bufend) {
+                    if (p >= buf_end) {
                         goto comma;
                     }
                     c = *p;
@@ -612,7 +612,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
                 break;
             }
             ++p;
-            if (p >= bufend) {
+            if (p >= buf_end) {
                 break;
             }
             c = *p;
@@ -624,14 +624,14 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
             columns[col_idx].width = width;
         }
 
-        if (p >= bufend) {
+        if (p >= buf_end) {
             /* pretend separator for consistency */
-            EXPANDER_PUT(offset_buf, width_t, (width_t)(p - rowp + 1));
+            LINKED_PUT(offset_buf, width_t, (width_t)(p - rowp + 1));
             *row_np = col_idx + 1;  /* ncols */
             goto athardend;
         }
 
-        EXPANDER_PUT(offset_buf, width_t, (width_t)(p - rowp + 1));
+        LINKED_PUT(offset_buf, width_t, (width_t)(p - rowp + 1));
 
         if (c == '\n') {
             *row_np = col_idx + 1;  /* ncols */
@@ -639,13 +639,13 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
             for (col_idx++ ; col_idx < ncols; col_idx++) {
                 /* ragged right */
                 if (columns[col_idx].type == COL_TYPE_INT) {
-                    EXPANDER_PUT(&columns[col_idx].buf, int64_t, 0);
+                    LINKED_PUT(&columns[col_idx].buf, int64_t, 0);
                 } else if (columns[col_idx].type == COL_TYPE_DOUBLE) {
-                    EXPANDER_PUT(&columns[col_idx].buf, double, 0.0);
+                    LINKED_PUT(&columns[col_idx].buf, double, 0.0);
                 }
             }
 
-            if (p >= softend) {  /* newline (ie. p) >= softend */
+            if (p >= soft_end) {  /* newline (ie. p) >= soft_end */
                 /* break out before we get set for new row */
                 goto atsoftend;
             }
@@ -653,7 +653,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
             col_idx = 0;
             row_idx++;
             rowp = p + 1;
-            EXPANDER_PUT(offset_buf, width_t, 0);
+            LINKED_PUT(offset_buf, width_t, 0);
             row_np = &((width_t *)offset_buf->last->ptr)[-1];
         } else {
             col_idx++;
@@ -672,7 +672,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
 
     chunk->ncols = ncols;
     chunk->nrows = row_idx + 1;
-    chunk->softend = p;
+    chunk->soft_end = p;
 
     return 0;
 }
@@ -681,10 +681,10 @@ static int
 fixup_parse(ThreadCommon *common)
 {
     Chunk *bigchunk;
-    ExpanderLink *offset_link;
+    LinkedLink *offset_link;
     char *offset_ptr;
     const char *rowp;
-    ExpanderLink *val_links[256];
+    LinkedLink *val_links[256];
     char *val_ptrs[256];
     int col_idx;
     int first_row;
@@ -694,8 +694,8 @@ fixup_parse(ThreadCommon *common)
         if (i >= common->nchunks) {
             return 0;
         }
-        if (common->all_chunks[i].buf < common->all_chunks[i].bufend
-            && common->all_chunks[i - 1].softend + 1 != common->all_chunks[i].buf) {
+        if (common->all_chunks[i].buf < common->all_chunks[i].buf_end
+            && common->all_chunks[i - 1].soft_end + 1 != common->all_chunks[i].buf) {
             break;
         }
     }
@@ -705,9 +705,9 @@ fixup_parse(ThreadCommon *common)
 
     /* fix everything from chunk[i] onward */
     bigchunk->chunk_idx = i;
-    bigchunk->buf = common->all_chunks[i - 1].softend;
-    bigchunk->softend = common->all_chunks[i - 1].bufend;
-    bigchunk->bufend = common->all_chunks[i - 1].bufend;
+    bigchunk->buf = common->all_chunks[i - 1].soft_end;
+    bigchunk->soft_end = common->all_chunks[i - 1].buf_end;
+    bigchunk->buf_end = common->all_chunks[i - 1].buf_end;
 
     parse_stage1(common, bigchunk);
 
@@ -726,18 +726,18 @@ fixup_parse(ThreadCommon *common)
         int nrows = 0, ncols = 0;
         int col_idx;
 
-        expander_free(&chunk->offset_buf);
+        linked_free(&chunk->offset_buf);
 
         chunk->buf = rowp;
         chunk->offset_buf.own_data = 0;
         chunk->offset_buf.first = offset_link;
         chunk->offset_buf.first_data = offset_ptr;
 
-        while (rowp < chunk->softend) {
+        while (rowp < chunk->soft_end) {
             width_t row_n_cols = *((width_t *)offset_ptr);
-            EXPANDER_STEP(offset_link, offset_ptr, width_t, row_n_cols);
+            LINKED_STEP(offset_link, offset_ptr, width_t, row_n_cols);
             rowp += *((width_t *)offset_ptr);
-            EXPANDER_STEP(offset_link, offset_ptr, width_t, 1);
+            LINKED_STEP(offset_link, offset_ptr, width_t, 1);
             nrows++;
         }
 
@@ -748,7 +748,7 @@ fixup_parse(ThreadCommon *common)
             Column *column = &chunk->columns[col_idx];
 
             if (col_idx < chunk->ncols) {
-                expander_free(&column->buf);
+                linked_free(&column->buf);
                 column->buf.own_data = 0;
             }
 
@@ -763,14 +763,14 @@ fixup_parse(ThreadCommon *common)
             }
 
             if (column->type == COL_TYPE_INT || column->type == COL_TYPE_DOUBLE) {
-                ExpanderLink *val_link = val_links[col_idx];
+                LinkedLink *val_link = val_links[col_idx];
                 char *val_ptr = val_ptrs[col_idx];
                 size_t inc = nrows * sizeof(double);
 
                 column->buf.first = val_link;
                 column->buf.first_data = val_ptr;
-                while (inc >= val_link->data + EXPANDER_MAX - val_ptr) {
-                    inc -= val_link->data + EXPANDER_MAX - val_ptr;
+                while (inc >= val_link->data + LINKED_MAX - val_ptr) {
+                    inc -= val_link->data + LINKED_MAX - val_ptr;
                     val_link = val_link->next;
                     val_ptr = val_link->data;
                 }
@@ -842,9 +842,9 @@ parse_thread(void *data)
 }
 
 static const char *
-parse_headers(ThreadCommon *common, const char *line, const char *bufend)
+parse_headers(ThreadCommon *common, const char *csv_buf, const char *buf_end)
 {
-    const char *p = line;
+    const char *p = csv_buf;
     char *cellbuf, *new_cellbuf, *q;
     size_t cell_space;
     char sep = common->sep;
@@ -859,7 +859,7 @@ parse_headers(ThreadCommon *common, const char *line, const char *bufend)
 
     while (c != '\n') {
         q = cellbuf;
-        if (p >= bufend) {
+        if (p >= buf_end) {
             goto atstringend;
         }
         c = *p;
@@ -867,13 +867,13 @@ parse_headers(ThreadCommon *common, const char *line, const char *bufend)
             /* c is opening quote here */
             while (1) {
                 ++p;
-                if (p >= bufend) {
+                if (p >= buf_end) {
                     goto atstringend;
                 }
                 c = *p;
                 if (c == '"') {
                     ++p;
-                    if (p >= bufend) {
+                    if (p >= buf_end) {
                         goto atstringend;
                     }
                     c = *p;
@@ -900,7 +900,7 @@ parse_headers(ThreadCommon *common, const char *line, const char *bufend)
                 cellbuf = new_cellbuf;
             }
             ++p;
-            if (p >= bufend) {
+            if (p >= buf_end) {
                 goto atstringend;
             }
             c = *p;
@@ -909,7 +909,7 @@ parse_headers(ThreadCommon *common, const char *line, const char *bufend)
         str_obj = PyString_FromStringAndSize(cellbuf, q - cellbuf);
         PyList_Append(res, str_obj);  /* increfs */
         Py_DECREF(str_obj);
-        if (p >= bufend) {
+        if (p >= buf_end) {
             break;
         }
         ++p;
@@ -921,10 +921,10 @@ parse_headers(ThreadCommon *common, const char *line, const char *bufend)
 }
 
 static PyObject *
-parse_csv(const char *line, size_t buflen, char sep, int nthreads, int flags, int nheaders)
+parse_csv(const char *csv_buf, size_t buf_len, char sep, int nthreads, int flags, int nheaders)
 {
-    const char *bufend;
-    const char *databegin;
+    const char *buf_end;
+    const char *data_begin;
     int i;
     Chunk *chunks;
     ThreadData *thread_datas;
@@ -932,7 +932,7 @@ parse_csv(const char *line, size_t buflen, char sep, int nthreads, int flags, in
     pthread_t *threads;
     PyObject *res_obj;
 
-    bufend = line + buflen;
+    buf_end = csv_buf + buf_len;
 
     chunks = (Chunk *)malloc(nthreads * sizeof(Chunk));
     common.nchunks = nthreads;
@@ -945,26 +945,26 @@ parse_csv(const char *line, size_t buflen, char sep, int nthreads, int flags, in
     pthread_barrier_init(&common.barrier2, NULL, nthreads);
 
     if (nheaders) {
-        databegin = parse_headers(&common, line, bufend);
-        buflen = bufend - databegin;
+        data_begin = parse_headers(&common, csv_buf, buf_end);
+        buf_len = buf_end - data_begin;
     } else {
         Py_INCREF(Py_None);
         common.headers = Py_None;
-        databegin = line;
+        data_begin = csv_buf;
     }
 
     thread_datas = (ThreadData *)malloc(nthreads * sizeof(ThreadData));
     for (i = 0; i < nthreads; i++) {
-        const char *chunk_buf = databegin + buflen * i / nthreads;
-        const char *chunk_end = databegin + buflen * (i + 1) / nthreads;
-        if (chunk_end > bufend) {
-            chunk_end = bufend;
+        const char *chunk_buf = data_begin + buf_len * i / nthreads;
+        const char *chunk_end = data_begin + buf_len * (i + 1) / nthreads;
+        if (chunk_end > buf_end) {
+            chunk_end = buf_end;
         }
 
         chunks[i].chunk_idx = i;
         chunks[i].buf = chunk_buf;
-        chunks[i].softend = chunk_end;
-        chunks[i].bufend = bufend;
+        chunks[i].soft_end = chunk_end;
+        chunks[i].buf_end = buf_end;
 
         thread_datas[i].chunk = &chunks[i];
         thread_datas[i].common = &common;
@@ -993,6 +993,7 @@ parse_csv(const char *line, size_t buflen, char sep, int nthreads, int flags, in
 
 #ifdef DEBUG_COUNT
     Py_INCREF(Py_None);
+    return Py_None;
 #else
 
     res_obj = PyTuple_New(2);
@@ -1007,9 +1008,9 @@ static PyObject *
 parse_csv_func(PyObject *self, PyObject *args)
 {
     PyObject *str_obj, *sep_obj = NULL;
-    const char *line;
+    const char *csv_buf;
     char sep;
-    size_t buflen;
+    size_t buf_len;
     int nthreads = 4;
     int flags = 0;
     int nheaders = 0;
@@ -1023,10 +1024,10 @@ parse_csv_func(PyObject *self, PyObject *args)
     } else {
         sep = PyString_AsString(sep_obj)[0];
     }
-    line = PyString_AsString(str_obj);
-    buflen = PyString_Size(str_obj);
+    csv_buf = PyString_AsString(str_obj);
+    buf_len = PyString_Size(str_obj);
 
-    return parse_csv(line, buflen, sep, nthreads, flags, nheaders);
+    return parse_csv(csv_buf, buf_len, sep, nthreads, flags, nheaders);
 }
 
 static PyObject *
