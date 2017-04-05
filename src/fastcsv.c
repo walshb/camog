@@ -54,10 +54,16 @@ typedef struct {
 } LinkedBuf;
 
 typedef struct {
+    size_t len;
+    char *data;
+} ArrayBuf;
+
+typedef struct {
     LinkedBuf buf;
     width_t width;
     int first_row;
     int type;
+    char *arr_ptr;
 } Column;
 
 typedef struct {
@@ -65,11 +71,10 @@ typedef struct {
     const char *buf;
     const char *buf_end;
     const char *soft_end;
-    Column columns[256];
+    ArrayBuf columns;
     LinkedBuf offset_buf;
     int ncols;
     int nrows;
-    char *arr_ptrs[256];
 } Chunk;
 
 typedef struct {
@@ -92,6 +97,8 @@ typedef struct {
 } ThreadData;
 
 #define MAXLINE 256
+
+#define CHUNK_COLUMN(C, I) ((Column *)((C)->columns.data))[I]
 
 #define NEXTCHAR_NOQUOTES(L) \
     do {                     \
@@ -177,6 +184,31 @@ typedef struct {
         }                                                               \
     } while (0)
 
+int
+array_buf_init(ArrayBuf *arr_buf)
+{
+    arr_buf->len = 256 * sizeof(Column);
+    arr_buf->data = (char *)malloc(arr_buf->len);
+    return 0;
+}
+
+int array_buf_free(ArrayBuf *arr_buf)
+{
+    free(arr_buf->data);
+    return 0;
+}
+
+char *
+array_buf_enlarge(ArrayBuf *arr_buf, size_t n)
+{
+    if (arr_buf->len <= n) {
+        arr_buf->len *= 2;  /* assume only adding small number */
+        arr_buf->data = (char *)realloc(arr_buf->data, arr_buf->len);
+    }
+
+    return arr_buf->data;
+}
+
 static int
 linked_free(LinkedBuf *linked) {
     LinkedLink *link;
@@ -197,9 +229,10 @@ static int
 chunk_free(Chunk *chunk) {
     int j;
     for (j = 0; j < chunk->ncols; j++) {
-        linked_free(&chunk->columns[j].buf);
+        linked_free(&CHUNK_COLUMN(chunk, j).buf);
     }
     linked_free(&chunk->offset_buf);
+    array_buf_free(&chunk->columns);
 
     return 0;
 }
@@ -218,8 +251,8 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
     }
 
     for (col_idx = 0; col_idx < chunk->ncols; col_idx++) {
-        const Column *column = &chunk->columns[col_idx];
-        char *xs = chunk->arr_ptrs[col_idx];
+        const Column *column = &CHUNK_COLUMN(chunk, col_idx);
+        char *xs = CHUNK_COLUMN(chunk, col_idx).arr_ptr;
         const LinkedBuf *linked = &column->buf;
         LinkedLink *link;
         size_t nbytes;
@@ -246,7 +279,7 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
                 }
             }
 
-            nbytes = chunk->arr_ptrs[col_idx] + chunk->nrows * sizeof(double) - xs;
+            nbytes = column->arr_ptr + chunk->nrows * sizeof(double) - xs;
             if (nbytes > 0) {
                 memset(xs, 0, nbytes);
             }
@@ -268,11 +301,14 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
             const char *p;
             char *q;
             char c;
+            Column *column;
 
             col_idx = common->str_idxs[str_col_idx];
             if (col_idx >= row_n_cols) {
-                dest = chunk->arr_ptrs[col_idx] + row_idx * chunk->columns[col_idx].width;
-                memset(dest, 0, chunk->columns[col_idx].width);
+                column = &CHUNK_COLUMN(chunk, col_idx);
+                dest = column->arr_ptr + row_idx * column->width;
+;
+                memset(dest, 0, column->width);
                 continue;  /* maybe more empty columns to the right */
             }
             if (col_idx == 0) {
@@ -286,12 +322,13 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
             cell_width = cell_end - cellp - 1;  /* excluding separator */
 
 #if NUMPY_STRING_OBJECT
-            dest = chunk->arr_ptrs[col_idx] + row_idx * sizeof(PyObject *);
+            dest = column->arr_ptr + row_idx * sizeof(PyObject *);
             Py_SIZE(*((PyObject **)dest)) = cell_width;
             dest = PyString_AsString(*(PyObject **)dest);
             memcpy(dest, cellp, cell_width);
 #else
-            dest = chunk->arr_ptrs[col_idx] + row_idx * chunk->columns[col_idx].width;
+            column = &CHUNK_COLUMN(chunk, col_idx);
+            dest = column->arr_ptr + row_idx * column->width;
             p = cellp;
             q = dest;
 
@@ -328,8 +365,8 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
                 c = *p++;
             }
         atstringend:
-            if ((q - dest) < chunk->columns[col_idx].width) {
-                memset(q, 0, chunk->columns[col_idx].width - (q - dest));
+            if ((q - dest) < column->width) {
+                memset(q, 0, column->width - (q - dest));
             }
 #endif
 
@@ -373,24 +410,27 @@ allocate_arrays(ThreadCommon *common)
         col_type = COL_TYPE_INT;
         width = 1;  /* numpy has minimum string len of 1 */
         for (i = 0; i < nchunks; i++) {
+            Column *column;
             if (col_idx >= chunks[i].ncols) {
                 continue;
             }
-            if (chunks[i].columns[col_idx].type > col_type) {  /* "supertype" */
-                col_type = chunks[i].columns[col_idx].type;
+            column = &CHUNK_COLUMN(&chunks[i], col_idx);
+            if (column->type > col_type) {  /* "supertype" */
+                col_type = column->type;
             }
-            if (chunks[i].columns[col_idx].width > width) {
-                width = chunks[i].columns[col_idx].width;
+            if (column->width > width) {
+                width = column->width;
             }
         }
         /* make the column the same type in each chunk */
         for (i = 0; i < nchunks; i++) {
-            Column *column = &chunks[i].columns[col_idx];
+            Column *column;
+            array_buf_enlarge(&chunks[i].columns, ncols * sizeof(Column));
+            column = &CHUNK_COLUMN(&chunks[i], col_idx);
             if (col_idx >= chunks[i].ncols) {
                 column->buf.first = NULL;
                 column->first_row = 0;
-            }
-            if (column->type == COL_TYPE_INT && col_type == COL_TYPE_DOUBLE) {
+            } else if (column->type == COL_TYPE_INT && col_type == COL_TYPE_DOUBLE) {
                 CHANGE_TYPE(column, int64_t, double);
             }
             column->type = col_type;
@@ -404,7 +444,7 @@ allocate_arrays(ThreadCommon *common)
             xs = (char *)PyArray_DATA((PyArrayObject *)arr);
             memset(xs, 1, nrows * sizeof(int64_t));
             for (i = 0; i < nchunks; i++) {
-                chunks[i].arr_ptrs[col_idx] = xs;
+                CHUNK_COLUMN(&chunks[i], col_idx).arr_ptr = xs;
                 xs += chunks[i].nrows * sizeof(int64_t);
             }
         } else if (col_type == COL_TYPE_DOUBLE) {
@@ -412,7 +452,7 @@ allocate_arrays(ThreadCommon *common)
             xs = (char *)PyArray_DATA((PyArrayObject *)arr);
             memset(xs, 1, nrows * sizeof(double));
             for (i = 0; i < nchunks; i++) {
-                chunks[i].arr_ptrs[col_idx] = xs;
+                CHUNK_COLUMN(&chunks[i], col_idx).arr_ptr = xs;
                 xs += chunks[i].nrows * sizeof(double);
             }
         } else if (col_type == COL_TYPE_STRING) {
@@ -424,7 +464,7 @@ allocate_arrays(ThreadCommon *common)
                 ((PyObject **)xs)[i] = PyString_FromStringAndSize(NULL, width);
             }
             for (i = 0; i < nchunks; i++) {
-                chunks[i].arr_ptrs[col_idx] = xs;
+                CHUNK_COLUMN(&chunks[i], col_idx).arr_ptr = xs;
                 xs += chunks[i].nrows * sizeof(PyObject *);
             }
 #else
@@ -432,7 +472,7 @@ allocate_arrays(ThreadCommon *common)
             xs = (char *)PyArray_DATA((PyArrayObject *)arr);
             memset(xs, 1, nrows * width);
             for (i = 0; i < nchunks; i++) {
-                chunks[i].arr_ptrs[col_idx] = xs;
+                CHUNK_COLUMN(&chunks[i], col_idx).arr_ptr = xs;
                 xs += chunks[i].nrows * width;
             }
 #endif
@@ -446,7 +486,7 @@ allocate_arrays(ThreadCommon *common)
     for (i = 0; i < nchunks; i++) {
         int col_idx;
         for (col_idx = chunks[i].ncols; col_idx < ncols; col_idx++) {
-            chunks[i].columns[col_idx].buf.own_data = 0;
+            CHUNK_COLUMN(&chunks[i], col_idx).buf.own_data = 0;
         }
         chunks[i].ncols = ncols;
     }
@@ -464,7 +504,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
     const char *soft_end = chunk->soft_end;  /* can go past this in middle of line */
     const char sep = common->sep;
     LinkedBuf *offset_buf = &chunk->offset_buf;
-    Column *columns = chunk->columns;
+    Column *columns = &CHUNK_COLUMN(chunk, 0);
     const char *p = buf;
     const char *cellp = NULL;
     const char *rowp = buf;
@@ -519,11 +559,12 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
         }
         if (col_idx >= ncols) {
             ncols++;
-            COLUMN_INIT(&columns[col_idx], row_idx, COL_TYPE_INT);
+            columns = (Column *)array_buf_enlarge(&chunk->columns, ncols * sizeof(Column));
+            COLUMN_INIT(&CHUNK_COLUMN(chunk, col_idx), row_idx, COL_TYPE_INT);
         }
         cellp = p;
 
-        col_type = columns[col_idx].type;
+        col_type = CHUNK_COLUMN(chunk, col_idx).type;
 
         c = *p;
 
@@ -708,6 +749,7 @@ fixup_parse(ThreadCommon *common)
     bigchunk->buf = common->all_chunks[i - 1].soft_end;
     bigchunk->soft_end = common->all_chunks[i - 1].buf_end;
     bigchunk->buf_end = common->all_chunks[i - 1].buf_end;
+    array_buf_init(&bigchunk->columns);
 
     parse_stage1(common, bigchunk);
 
@@ -716,8 +758,8 @@ fixup_parse(ThreadCommon *common)
     rowp = bigchunk->buf;
 
     for (col_idx = 0; col_idx < bigchunk->ncols; col_idx++) {
-        val_links[col_idx] = bigchunk->columns[col_idx].buf.first;
-        val_ptrs[col_idx] = bigchunk->columns[col_idx].buf.first_data;
+        val_links[col_idx] = CHUNK_COLUMN(bigchunk, col_idx).buf.first;
+        val_ptrs[col_idx] = CHUNK_COLUMN(bigchunk, col_idx).buf.first_data;
     }
 
     first_row = 0;
@@ -744,8 +786,11 @@ fixup_parse(ThreadCommon *common)
         chunk->nrows = nrows;
 
         for (col_idx = 0; col_idx < bigchunk->ncols; col_idx++) {
-            const Column *bigcolumn = &bigchunk->columns[col_idx];
-            Column *column = &chunk->columns[col_idx];
+            const Column *bigcolumn = &CHUNK_COLUMN(bigchunk, col_idx);
+            Column *column;
+
+            array_buf_enlarge(&chunk->columns, col_idx * sizeof(Column));
+            column = &CHUNK_COLUMN(chunk, col_idx);
 
             if (col_idx < chunk->ncols) {
                 linked_free(&column->buf);
@@ -786,7 +831,7 @@ fixup_parse(ThreadCommon *common)
         }
 
         for (col_idx = chunk->ncols; col_idx < ncols; col_idx++) {
-            chunk->columns[col_idx].buf.own_data = 0;
+            CHUNK_COLUMN(chunk, col_idx).buf.own_data = 0;
         }
 
         chunk->ncols = ncols;
@@ -965,6 +1010,7 @@ parse_csv(const char *csv_buf, size_t buf_len, char sep, int nthreads, int flags
         chunks[i].buf = chunk_buf;
         chunks[i].soft_end = chunk_end;
         chunks[i].buf_end = buf_end;
+        array_buf_init(&chunks[i].columns);
 
         thread_datas[i].chunk = &chunks[i];
         thread_datas[i].common = &common;

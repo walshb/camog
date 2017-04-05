@@ -54,3 +54,17 @@ def test_headers_data2():
     assert np.all(data[0] == np.array([0, 123]))
     assert np.all(data[1] == np.array([0, 456]))
     assert np.all(data[2] == np.array([0, 789]))
+
+
+def test_many_columns():
+    ncols = 1000
+    want_headers = ['col%d' % i for i in xrange(ncols)]
+    want_row = [i for i in xrange(ncols)]
+    csv_str = ','.join(want_headers) + '\n' + ','.join(str(v) for v in want_row)
+
+    headers, columns = _do_parse_both(csv_str)
+
+    assert headers == want_headers
+    assert len(columns) == ncols
+    for i in xrange(ncols):
+        assert columns[i][0] == want_row[i]
