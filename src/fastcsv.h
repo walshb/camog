@@ -25,17 +25,19 @@
 
 #define NUMPY_STRING_OBJECT 0
 
+typedef unsigned char uchar;
+
 typedef struct {
-    const char *csv_buf;
+    const uchar *csv_buf;
     size_t buf_len;
-    char sep;
+    uchar sep;
     int nthreads;
     int flags;
     int nheaders;
 } FastCsvInput;
 
 typedef struct fast_csv_result_s {
-    int (*add_header)(struct fast_csv_result_s *, const char *, size_t);
+    int (*add_header)(struct fast_csv_result_s *, const uchar *, size_t);
     void *(*add_column)(struct fast_csv_result_s *, int, size_t, size_t);
 } FastCsvResult;
 

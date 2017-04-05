@@ -56,9 +56,9 @@ py_add_column(FastCsvResult *res, int col_type, size_t nrows, size_t width)
 }
 
 static int
-py_add_header(FastCsvResult *res, const char *str, size_t len)
+py_add_header(FastCsvResult *res, const uchar *str, size_t len)
 {
-    PyObject *str_obj = PyString_FromStringAndSize(str, len);
+    PyObject *str_obj = PyString_FromStringAndSize((char *)str, len);
     PyFastCsvResult *pyres = (PyFastCsvResult *)res;
 
     PyList_Append(pyres->headers, str_obj);  /* increfs */
@@ -67,10 +67,10 @@ py_add_header(FastCsvResult *res, const char *str, size_t len)
 }
 
 static PyObject *
-py_parse_csv(const char *csv_buf, size_t buf_len, PyObject *sep_obj, int nthreads,
+py_parse_csv(const uchar *csv_buf, size_t buf_len, PyObject *sep_obj, int nthreads,
              int flags, int nheaders)
 {
-    char sep;
+    uchar sep;
     FastCsvInput input;
     PyFastCsvResult result;
     PyObject *res_obj;
@@ -111,7 +111,7 @@ static PyObject *
 parse_csv_func(PyObject *self, PyObject *args)
 {
     PyObject *str_obj, *sep_obj = NULL;
-    const char *csv_buf;
+    const uchar *csv_buf;
     size_t buf_len;
     int nthreads = 4;
     int flags = 0;
@@ -121,7 +121,7 @@ parse_csv_func(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    csv_buf = PyString_AsString(str_obj);
+    csv_buf = (uchar *)PyString_AsString(str_obj);
     buf_len = PyString_Size(str_obj);
 
     return py_parse_csv(csv_buf, buf_len, sep_obj, nthreads, flags, nheaders);

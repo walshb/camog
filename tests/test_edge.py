@@ -69,6 +69,20 @@ def test_empty_line():
     assert np.all(res[1] == np.array([0, 0, 1]))
 
 
-if __name__ == '__main__':
-    test_empty_line()
+def _set_top_bit(s):
+    return ''.join(chr(ord(c) | 128) for c in s)
 
+
+def test_signed_char():
+    s1 = _set_top_bit('1234567')
+    s2 = _set_top_bit('89012345')
+    csv_str = s1 + ',' + s2
+
+    res = _do_parse_csv(csv_str)
+
+    assert len(res) == 2
+
+    assert res[0].dtype == 'S7'
+    assert np.all(res[0] == np.array([s1]))
+    assert res[1].dtype == 'S8'
+    assert np.all(res[1] == np.array([s2]))
