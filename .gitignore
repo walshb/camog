@@ -1,8 +1,10 @@
 *~
 *.pyc
 *.swp
+*.o
 *.so
 /*.egg-info/
 /.cache
 /build/
 /gensrc/
+/afl/csvread
