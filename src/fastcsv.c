@@ -14,29 +14,18 @@
  * limitations under the License.
  */
 
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-
-#include "Python.h"
-#include "math.h"
-#include "numpy/arrayobject.h"
 
 #include "osx_pthread_barrier.h"
+
+#include "fastcsv.h"
 
 #include "powers.h"
 
 #define LINKED_MAX 1024
-
-#define COL_TYPE_INT 1
-#define COL_TYPE_DOUBLE 2
-#define COL_TYPE_STRING 3
-
-#define FLAG_EXCEL_QUOTES 1
-
-#define NUMPY_STRING_OBJECT 0
 
 typedef uint32_t width_t;
 
@@ -86,8 +75,7 @@ typedef struct {
     int flags;
     int str_idxs[256];
     int n_str_cols;
-    PyObject *headers;
-    PyObject *result;
+    FastCsvResult *result;
     char sep;
 } ThreadCommon;
 
@@ -398,14 +386,10 @@ allocate_arrays(ThreadCommon *common)
         nrows += chunks[i].nrows;
     }
 
-    common->result = PyList_New(ncols);
-
     for (col_idx = 0; col_idx < ncols; col_idx++) {
         char *xs;
         int col_type;
         width_t width;
-        PyObject *arr = NULL;
-        npy_intp dims[1];
 
         col_type = COL_TYPE_INT;
         width = 1;  /* numpy has minimum string len of 1 */
@@ -437,19 +421,15 @@ allocate_arrays(ThreadCommon *common)
             column->width = width;
         }
 
-        dims[0] = nrows;
-
         if (col_type == COL_TYPE_INT) {
-            arr = PyArray_SimpleNew(1, dims, NPY_INT64);
-            xs = (char *)PyArray_DATA((PyArrayObject *)arr);
+            xs = (char *)common->result->add_column(common->result, col_type, nrows, 0);
             memset(xs, 1, nrows * sizeof(int64_t));
             for (i = 0; i < nchunks; i++) {
                 CHUNK_COLUMN(&chunks[i], col_idx).arr_ptr = xs;
                 xs += chunks[i].nrows * sizeof(int64_t);
             }
         } else if (col_type == COL_TYPE_DOUBLE) {
-            arr = PyArray_SimpleNew(1, dims, NPY_DOUBLE);
-            xs = (char *)PyArray_DATA((PyArrayObject *)arr);
+            xs = (char *)common->result->add_column(common->result, col_type, nrows, 0);
             memset(xs, 1, nrows * sizeof(double));
             for (i = 0; i < nchunks; i++) {
                 CHUNK_COLUMN(&chunks[i], col_idx).arr_ptr = xs;
@@ -468,8 +448,7 @@ allocate_arrays(ThreadCommon *common)
                 xs += chunks[i].nrows * sizeof(PyObject *);
             }
 #else
-            arr = PyArray_New(&PyArray_Type, 1, dims, NPY_STRING, NULL, NULL, width, 0, NULL);
-            xs = (char *)PyArray_DATA((PyArrayObject *)arr);
+            xs = (char *)common->result->add_column(common->result, col_type, nrows, width);
             memset(xs, 1, nrows * width);
             for (i = 0; i < nchunks; i++) {
                 CHUNK_COLUMN(&chunks[i], col_idx).arr_ptr = xs;
@@ -479,7 +458,6 @@ allocate_arrays(ThreadCommon *common)
             common->str_idxs[n_str_cols] = col_idx;
             n_str_cols++;
         }
-        PyList_SET_ITEM(common->result, col_idx, arr);  /* steals ref */
     }
 
     /* Give each chunk the same number of columns */
@@ -893,11 +871,7 @@ parse_headers(ThreadCommon *common, const char *csv_buf, const char *buf_end)
     char *cellbuf, *new_cellbuf, *q;
     size_t cell_space;
     char sep = common->sep;
-    PyObject *str_obj;
     char c = 0;
-
-    PyObject *res = PyList_New(0);
-    common->headers = res;
 
     cell_space = 256;
     cellbuf = (char *)malloc(cell_space);
@@ -951,9 +925,7 @@ parse_headers(ThreadCommon *common, const char *csv_buf, const char *buf_end)
             c = *p;
         }
     atstringend:
-        str_obj = PyString_FromStringAndSize(cellbuf, q - cellbuf);
-        PyList_Append(res, str_obj);  /* increfs */
-        Py_DECREF(str_obj);
+        common->result->add_header(common->result, cellbuf, q - cellbuf);
         if (p >= buf_end) {
             break;
         }
@@ -965,9 +937,11 @@ parse_headers(ThreadCommon *common, const char *csv_buf, const char *buf_end)
     return p;
 }
 
-static PyObject *
-parse_csv(const char *csv_buf, size_t buf_len, char sep, int nthreads, int flags, int nheaders)
+int
+parse_csv(const FastCsvInput *input, FastCsvResult *res)
 {
+    size_t buf_len = input->buf_len;
+    int nthreads = input->nthreads;
     const char *buf_end;
     const char *data_begin;
     int i;
@@ -975,27 +949,25 @@ parse_csv(const char *csv_buf, size_t buf_len, char sep, int nthreads, int flags
     ThreadData *thread_datas;
     ThreadCommon common;
     pthread_t *threads;
-    PyObject *res_obj;
 
-    buf_end = csv_buf + buf_len;
+    buf_end = input->csv_buf + buf_len;
 
     chunks = (Chunk *)malloc(nthreads * sizeof(Chunk));
     common.nchunks = nthreads;
     common.all_chunks = chunks;
     common.bigchunk = NULL;
     common.n_str_cols = 0;
-    common.flags = flags;
-    common.sep = sep;
+    common.flags = input->flags;
+    common.sep = input->sep;
+    common.result = res;
     pthread_barrier_init(&common.barrier1, NULL, nthreads);
     pthread_barrier_init(&common.barrier2, NULL, nthreads);
 
-    if (nheaders) {
-        data_begin = parse_headers(&common, csv_buf, buf_end);
+    if (input->nheaders) {
+        data_begin = parse_headers(&common, input->csv_buf, buf_end);
         buf_len = buf_end - data_begin;
     } else {
-        Py_INCREF(Py_None);
-        common.headers = Py_None;
-        data_begin = csv_buf;
+        data_begin = input->csv_buf;
     }
 
     thread_datas = (ThreadData *)malloc(nthreads * sizeof(ThreadData));
@@ -1037,112 +1009,5 @@ parse_csv(const char *csv_buf, size_t buf_len, char sep, int nthreads, int flags
     }
     free(chunks);
 
-#ifdef DEBUG_COUNT
-    Py_INCREF(Py_None);
-    return Py_None;
-#else
-
-    res_obj = PyTuple_New(2);
-    PyTuple_SET_ITEM(res_obj, 0, common.headers);
-    PyTuple_SET_ITEM(res_obj, 1, common.result);
-
-    return res_obj;
-#endif
-}
-
-static PyObject *
-parse_csv_func(PyObject *self, PyObject *args)
-{
-    PyObject *str_obj, *sep_obj = NULL;
-    const char *csv_buf;
-    char sep;
-    size_t buf_len;
-    int nthreads = 4;
-    int flags = 0;
-    int nheaders = 0;
-
-    if (!PyArg_ParseTuple(args, "O|Oiii", &str_obj, &sep_obj, &nthreads, &flags, &nheaders)) {
-        return NULL;
-    }
-
-    if (sep_obj == NULL) {
-        sep = ',';
-    } else {
-        sep = PyString_AsString(sep_obj)[0];
-    }
-    csv_buf = PyString_AsString(str_obj);
-    buf_len = PyString_Size(str_obj);
-
-    return parse_csv(csv_buf, buf_len, sep, nthreads, flags, nheaders);
-}
-
-static PyObject *
-parse_file_func(PyObject *self, PyObject *args)
-{
-    PyObject *fname_obj;
-    PyObject *sep_obj = NULL;
-    PyObject *res;
-    void *filedata;
-    const char *fname;
-    char sep;
-    int nthreads = 4;
-    int flags = 0;
-    int nheaders = 0;
-    int fd;
-    struct stat stat_buf;
-
-    if (!PyArg_ParseTuple(args, "O|Oiii", &fname_obj, &sep_obj, &nthreads, &flags, &nheaders)) {
-        return NULL;
-    }
-
-    if (sep_obj == NULL) {
-        sep = ',';
-    } else {
-        sep = PyString_AsString(sep_obj)[0];
-    }
-
-    fname = PyString_AsString(fname_obj);
-    if ((fd = open(fname, O_RDONLY)) < 0) {
-        return PyErr_Format(PyExc_IOError, "%s: could not open", fname);
-    }
-
-    fstat(fd, &stat_buf);
-
-    if ((filedata = mmap(NULL, stat_buf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
-        close(fd);
-        return PyErr_Format(PyExc_IOError, "%s: mmap failed", fname);
-    }
-
-    res = parse_csv((const char *)filedata, stat_buf.st_size, sep, nthreads, flags, nheaders);
-
-    munmap(filedata, stat_buf.st_size);
-
-    close(fd);
-
-    return res;
-}
-
-static PyMethodDef mod_methods[] = {
-    {"parse_csv", (PyCFunction)parse_csv_func, METH_VARARGS,
-     "Parse csv"},
-    {"parse_file", (PyCFunction)parse_file_func, METH_VARARGS,
-     "Parse csv file"},
-    {NULL}  /* Sentinel */
-};
-
-
-#ifndef PyMODINIT_FUNC  /* declarations for DLL import/export */
-#define PyMODINIT_FUNC void
-#endif
-PyMODINIT_FUNC
-init_cfastcsv(void)
-{
-    PyObject* m;
-
-    import_array();
-
-    m = Py_InitModule3("camog._cfastcsv", mod_methods,
-                       "Example module that creates an extension type.");
-
-    (void)m;  /* avoid warning */
+    return 0;
 }

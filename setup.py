@@ -19,7 +19,8 @@ import numpy as np
 from setuptools import setup, Extension
 
 ext_modules = [Extension('camog._cfastcsv',
-                         ['src/fastcsv.c'],
+                         ['src/fastcsv.c',
+                          'src/pyfastcsv.c'],
                          include_dirs=['gensrc', np.get_include()])]
 
 

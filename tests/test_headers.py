@@ -20,8 +20,8 @@ def _do_parse_headers(csv_str, sep=',', nthreads=4):
     return cfastcsv.parse_csv(csv_str, sep, nthreads, 0, 1)[0]
 
 
-def _do_parse_both(csv_str, sep=',', nthreads=4):
-    return cfastcsv.parse_csv(csv_str, sep, nthreads, 0, 1)
+def _do_parse_both(csv_str, sep=',', nthreads=4, nheaders=1):
+    return cfastcsv.parse_csv(csv_str, sep, nthreads, 0, nheaders)
 
 
 def test_headers1():
@@ -68,3 +68,13 @@ def test_many_columns():
     assert len(columns) == ncols
     for i in xrange(ncols):
         assert columns[i][0] == want_row[i]
+
+
+def test_nheaders_zero():
+    headers, data = _do_parse_both('123,456,789\n123,456,789\n', nheaders=0)
+
+    assert headers is None
+
+    assert np.all(data[0] == np.array([123, 123]))
+    assert np.all(data[1] == np.array([456, 456]))
+    assert np.all(data[2] == np.array([789, 789]))
