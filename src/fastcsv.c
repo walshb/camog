@@ -73,7 +73,7 @@ typedef struct {
     pthread_barrier_t barrier1;
     pthread_barrier_t barrier2;
     int flags;
-    int str_idxs[256];
+    int *str_idxs;
     int n_str_cols;
     FastCsvResult *result;
     uchar sep;
@@ -387,6 +387,8 @@ allocate_arrays(ThreadCommon *common)
         }
         nrows += chunks[i].nrows;
     }
+
+    common->str_idxs = (int *)malloc(ncols * sizeof(int));
 
     for (col_idx = 0; col_idx < ncols; col_idx++) {
         uchar *xs;
@@ -710,8 +712,8 @@ fixup_parse(ThreadCommon *common)
     LinkedLink *offset_link;
     uchar *offset_ptr;
     const uchar *rowp;
-    LinkedLink *val_links[256];
-    uchar *val_ptrs[256];
+    LinkedLink **val_links;
+    uchar **val_ptrs;
     int col_idx;
     int first_row;
     int i;
@@ -742,6 +744,8 @@ fixup_parse(ThreadCommon *common)
     offset_ptr = offset_link->data;
     rowp = bigchunk->buf;
 
+    val_links = (LinkedLink **)malloc(bigchunk->ncols * sizeof(LinkedLink *));
+    val_ptrs = (uchar **)malloc(bigchunk->ncols * sizeof(uchar *));
     for (col_idx = 0; col_idx < bigchunk->ncols; col_idx++) {
         val_links[col_idx] = CHUNK_COLUMN(bigchunk, col_idx).buf.first;
         val_ptrs[col_idx] = CHUNK_COLUMN(bigchunk, col_idx).buf.first_data;
@@ -822,6 +826,9 @@ fixup_parse(ThreadCommon *common)
         chunk->ncols = ncols;
         first_row += nrows;
     }
+
+    free(val_links);
+    free(val_ptrs);
 
     return 0;
 }
@@ -963,6 +970,7 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
     common.nchunks = nthreads;
     common.all_chunks = chunks;
     common.bigchunk = NULL;
+    common.str_idxs = NULL;
     common.n_str_cols = 0;
     common.flags = input->flags;
     common.sep = input->sep;
@@ -1015,6 +1023,7 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
         free(common.bigchunk);
     }
     free(chunks);
+    free(common.str_idxs);
 
     return 0;
 }
