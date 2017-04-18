@@ -17,12 +17,14 @@
 import sys
 
 minexpo = -324
-maxexpo = 309   # exclusive
+maxexpo = 310   # exclusive
 
 sys.stdout.write('double powers[] = {')
 for expo in xrange(minexpo, maxexpo):
     if expo == minexpo:
         sys.stdout.write('0.0')
+    elif expo >= maxexpo - 1:
+        sys.stdout.write('1.0 / 0.0')
     else:
         sys.stdout.write('1.0e%s' % expo)
     if expo < maxexpo - 1:

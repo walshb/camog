@@ -280,7 +280,7 @@ def main():
     expo_minus = SingleChar("c == '-'", "exposign = -1;")
     expo_plus_or_minus = Or(expo_plus, Or(expo_minus, Nothing()))
 
-    expo_digit = SingleChar("(digit = c ^ '0') <= 9", "expo = expo * 10 + digit;")
+    expo_digit = SingleChar("(digit = c ^ '0') <= 9", "expo = (expo * 10 + digit) & 511;")
 
     expo = _seq(SingleChar("(c | 32) == 'e'", change_to_double),
                 expo_plus_or_minus,

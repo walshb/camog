@@ -86,3 +86,25 @@ def test_signed_char():
     assert np.all(res[0] == np.array([s1]))
     assert res[1].dtype == 'S8'
     assert np.all(res[1] == np.array([s2]))
+
+
+def test_huge_expo():
+    csv_str = '1e5999999999999'
+
+    res = _do_parse_csv(csv_str)
+
+    assert len(res) == 1
+
+    assert res[0].dtype == float
+    assert np.isinf(res[0][0])
+
+
+def test_huge_negative_expo():
+    csv_str = '1e-5999999999999'
+
+    res = _do_parse_csv(csv_str)
+
+    assert len(res) == 1
+
+    assert res[0].dtype == float
+    assert res[0][0] == 0.0

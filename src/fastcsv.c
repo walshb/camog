@@ -576,11 +576,16 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
         } else {
             expo = expo * exposign - fracexpo;
             if (expo >= 0) {
-                if (expo > 308) {
-                    expo = 308;
+                if (expo > 309) {
+                    expo = 309;
                 }
                 val = (double)value * powers[expo + 324] * sign;
-            } else {
+            } else if (expo < -309) {
+                if (expo < -324) {
+                    expo = -324;
+                }
+                val = (double)value * powers[expo + 324] * sign;
+            } else {  /* more accurate to divide by precise value */
                 val = (double)value / powers[324 - expo] * sign;
             }
             LINKED_PUT(&columns[col_idx].buf, double, val);
