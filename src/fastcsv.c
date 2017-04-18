@@ -142,15 +142,16 @@ typedef struct {
         link->ptr += sizeof(T);                                         \
     } while (0)
 
-#define LINKED_STEP(L, P, T, N)                                         \
-    do {                                                                \
-        if ((P) >= (L)->data + LINKED_MAX - (N) * sizeof(T)) {          \
-            LinkedLink *new_link = (L)->next;                           \
-            P = new_link->data + ((P) - (L)->data + (N) * sizeof(T) - LINKED_MAX); \
-            L = new_link;                                               \
-        } else {                                                        \
-            P += (N) * sizeof(T);                                       \
-        }                                                               \
+#define LINKED_STEP(L, P, T, N)                         \
+    do {                                                \
+        int n = (N) * sizeof(T);                        \
+        while ((P) >= (L)->data + LINKED_MAX - n) {     \
+            LinkedLink *new_link = (L)->next;           \
+            n -= (L)->data + LINKED_MAX - (P);          \
+            P = new_link->data;                         \
+            L = new_link;                               \
+        }                                               \
+        P += n;                                         \
     } while (0)
 
 #define COLUMN_INIT(C, R, T)                    \
@@ -281,6 +282,7 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
         width_t row_n_cols = *((width_t *)offset_ptr);
         int prev_col_idx = 0;
         int str_col_idx;
+
         for (str_col_idx = 0; str_col_idx < common->n_str_cols; str_col_idx++) {
             const uchar *cellp;
             uchar *dest;
