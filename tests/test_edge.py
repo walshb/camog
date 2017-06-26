@@ -108,3 +108,11 @@ def test_huge_negative_expo():
 
     assert res[0].dtype == float
     assert res[0][0] == 0.0
+
+
+def test_hard_end_empty_cell():
+    csv_str = 'a,b,'
+
+    res = _do_parse_csv(csv_str)
+
+    assert len(res) == 3

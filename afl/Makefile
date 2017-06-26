@@ -13,7 +13,7 @@
 # limitations under the License.
 
 CC := gcc
-CFLAGS := -I../src -I../gensrc
+CFLAGS := -Werror -O0 -g3 -I../src -I../gensrc
 
 .PHONY:	clean parser setupfuzz fuzz
 

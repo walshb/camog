@@ -504,7 +504,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
         while (1) {
             if (p >= buf_end) {
                 chunk->buf = p;
-                goto athardend;
+                goto finished;  /* just exit nicely */
             }
             c = *p++;
             if (c == '\n') {
@@ -513,7 +513,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
         }
         chunk->buf = p;
         if (p >= soft_end) {
-            goto atsoftend;
+            goto finished;
         }
     }
 
@@ -536,14 +536,15 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
         size_t numidx;
 #endif
 
-        if (p >= buf_end) {
-            goto athardend;
-        }
         if (col_idx >= ncols) {
             ncols++;
             columns = (Column *)array_buf_enlarge(&chunk->columns, ncols * sizeof(Column));
             COLUMN_INIT(&CHUNK_COLUMN(chunk, col_idx), row_idx, COL_TYPE_INT);
         }
+        if (p >= buf_end) {
+            goto athardend;
+        }
+
         cellp = p;
 
         col_type = CHUNK_COLUMN(chunk, col_idx).type;
@@ -653,9 +654,6 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
         }
 
         if (p >= buf_end) {
-            /* pretend separator for consistency */
-            LINKED_PUT(offset_buf, width_t, (width_t)(p - rowp + 1));
-            *row_np = col_idx + 1;  /* ncols */
             goto athardend;
         }
 
@@ -675,7 +673,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
 
             if (p >= soft_end) {  /* newline (ie. p) >= soft_end */
                 /* break out before we get set for new row */
-                goto atsoftend;
+                goto finished;
             }
 
             col_idx = 0;
@@ -691,12 +689,16 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
 
  athardend:
 
+    /* pretend separator for consistency */
+    LINKED_PUT(offset_buf, width_t, (width_t)(p - rowp + 1));
+    *row_np = col_idx + 1;  /* ncols */
+
     /* empty last line? */
     if (p == rowp) {
         row_idx--;
     }
 
- atsoftend:
+ finished:
 
     chunk->ncols = ncols;
     chunk->nrows = row_idx + 1;
