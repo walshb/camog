@@ -790,6 +790,10 @@ fixup_parse(ThreadCommon *common)
             const Column *bigcolumn = &CHUNK_COLUMN(bigchunk, col_idx);
             Column *column;
 
+            if (bigcolumn->first_row >= first_row + nrows) {
+                break;
+            }
+
             array_buf_enlarge(&chunk->columns, col_idx * sizeof(Column));
             column = &CHUNK_COLUMN(chunk, col_idx);
 
@@ -800,9 +804,7 @@ fixup_parse(ThreadCommon *common)
 
             column->type = bigcolumn->type;
             column->width = bigcolumn->width;
-            if (bigcolumn->first_row >= first_row + nrows) {
-                break;
-            } else if (bigcolumn->first_row > first_row) {
+            if (bigcolumn->first_row > first_row) {
                 column->first_row = bigcolumn->first_row - first_row;
             } else {
                 column->first_row = 0;
@@ -813,6 +815,7 @@ fixup_parse(ThreadCommon *common)
                 uchar *val_ptr = val_ptrs[col_idx];
                 size_t inc = (nrows - column->first_row) * sizeof(double);
 
+                column->buf.own_data = 0;
                 column->buf.first = val_link;
                 column->buf.first_data = val_ptr;
                 while (inc >= val_link->data + LINKED_MAX - val_ptr) {
@@ -831,8 +834,9 @@ fixup_parse(ThreadCommon *common)
             ncols++;
         }
 
-        for (col_idx = chunk->ncols; col_idx < ncols; col_idx++) {
-            CHUNK_COLUMN(chunk, col_idx).buf.own_data = 0;
+        for (col_idx = ncols; col_idx < chunk->ncols; col_idx++) {
+            Column *column = &CHUNK_COLUMN(chunk, col_idx);
+            linked_free(&column->buf);
         }
 
         chunk->ncols = ncols;

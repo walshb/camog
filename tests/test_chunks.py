@@ -48,3 +48,54 @@ def test_fixup_numbers():
     assert np.all(res[0] == np.array(['aaaaaaaaaaaaaaaa\n', '', '', '', '',
                                       '', '', '', '', '', '']))
     assert np.all(res[1] == np.array([0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
+
+
+def test_fixup_memory():
+    csv_str = '''"0,0,0,0,0,0,0,0,
+","1,1,1,1,1,1,1
+"
+
+1
+2
+3
+4
+9,9
+'''
+
+    n = len(csv_str)
+    str1 = csv_str[n // 3:n * 2 // 3]
+    str2 = csv_str[n * 2 // 3:]
+    assert '\n' in str1 and '"' in str1 and ',' in str1
+    assert '\n' in str2 and '"' in str2 and ',' in str2
+
+    res = _do_parse_csv(csv_str, 3)
+
+    assert len(res) == 2
+    assert np.all(res[0] == np.array(['0,0,0,0,0,0,0,0,\n', '', '1', '2', '3', '4', '9']))
+    assert np.all(res[1] == np.array(['1,1,1,1,1,1,1\n', '', '', '', '', '', '9']))
+
+
+def test_fixup_memory_2():
+    csv_str = '''"0,0,0,0,0,0,0,0,
+"
+"1,1,1,1,1,1,1
+"
+
+1
+2
+3
+4
+9,9
+'''
+
+    n = len(csv_str)
+    str1 = csv_str[n // 3:n * 2 // 3]
+    str2 = csv_str[n * 2 // 3:]
+    assert '\n' in str1 and '"' in str1 and ',' in str1
+    assert '\n' in str2 and '"' in str2 and ',' in str2
+
+    res = _do_parse_csv(csv_str, 3)
+
+    assert len(res) == 2
+    assert np.all(res[0] == np.array(['0,0,0,0,0,0,0,0,\n', '1,1,1,1,1,1,1\n', '', '1', '2', '3', '4', '9']))
+    assert np.all(res[1] == np.array([0, 0, 0, 0, 0, 0, 0, 9]))
