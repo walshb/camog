@@ -60,6 +60,7 @@ typedef struct {
     const uchar *buf;
     const uchar *buf_end;
     const uchar *soft_end;
+    const uchar *found_end;
     ArrayBuf columns;
     LinkedBuf offset_buf;
     int ncols;
@@ -241,36 +242,45 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
 
     for (col_idx = 0; col_idx < chunk->ncols; col_idx++) {
         const Column *column = &CHUNK_COLUMN(chunk, col_idx);
-        uchar *xs = CHUNK_COLUMN(chunk, col_idx).arr_ptr;
+        uchar *xs = column->arr_ptr;
         const LinkedBuf *linked = &column->buf;
         LinkedLink *link;
-        size_t nbytes;
+        size_t nbytes, col_nbytes;
 
         if (column->type == COL_TYPE_INT || column->type == COL_TYPE_DOUBLE) {
 
+            col_nbytes = chunk->nrows * sizeof(double);
             if (column->first_row > 0) {
                 nbytes = column->first_row * sizeof(double);
                 memset(xs, 0, nbytes);
+                col_nbytes -= nbytes;
                 xs += nbytes;
             }
 
             link = linked->first;
             if (link != NULL) {
                 nbytes = link->ptr - linked->first_data;
+                if (nbytes > col_nbytes) {
+                    nbytes = col_nbytes;
+                }
                 memcpy(xs, linked->first_data, nbytes);
+                col_nbytes -= nbytes;
                 xs += nbytes;
                 link = link->next;
-                while (link != NULL) {
+                while (link != NULL && col_nbytes > 0) {
                     nbytes = link->ptr - link->data;
+                    if (nbytes > col_nbytes) {
+                        nbytes = col_nbytes;
+                    }
                     memcpy(xs, link->data, nbytes);
+                    col_nbytes -= nbytes;
                     xs += nbytes;
                     link = link->next;
                 }
             }
 
-            nbytes = column->arr_ptr + chunk->nrows * sizeof(double) - xs;
-            if (nbytes > 0) {
-                memset(xs, 0, nbytes);
+            if (col_nbytes > 0) {
+                memset(xs, 0, col_nbytes);
             }
         }
     }
@@ -702,7 +712,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
 
     chunk->ncols = ncols;
     chunk->nrows = row_idx + 1;
-    chunk->soft_end = p;
+    chunk->found_end = p;
 
     return 0;
 }
@@ -725,7 +735,7 @@ fixup_parse(ThreadCommon *common)
             return 0;
         }
         if (common->all_chunks[i].buf < common->all_chunks[i].buf_end
-            && common->all_chunks[i - 1].soft_end + 1 != common->all_chunks[i].buf) {
+            && common->all_chunks[i - 1].found_end + 1 != common->all_chunks[i].buf) {
             break;
         }
     }
@@ -735,7 +745,7 @@ fixup_parse(ThreadCommon *common)
 
     /* fix everything from chunk[i] onward */
     bigchunk->chunk_idx = i;
-    bigchunk->buf = common->all_chunks[i - 1].soft_end;
+    bigchunk->buf = common->all_chunks[i - 1].found_end;
     bigchunk->soft_end = common->all_chunks[i - 1].buf_end;
     bigchunk->buf_end = common->all_chunks[i - 1].buf_end;
     array_buf_init(&bigchunk->columns);
@@ -801,7 +811,7 @@ fixup_parse(ThreadCommon *common)
             if (column->type == COL_TYPE_INT || column->type == COL_TYPE_DOUBLE) {
                 LinkedLink *val_link = val_links[col_idx];
                 uchar *val_ptr = val_ptrs[col_idx];
-                size_t inc = nrows * sizeof(double);
+                size_t inc = (nrows - column->first_row) * sizeof(double);
 
                 column->buf.first = val_link;
                 column->buf.first_data = val_ptr;

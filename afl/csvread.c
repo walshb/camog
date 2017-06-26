@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    afl_parse_csv(filedata, stat_buf.st_size, ',', 1, 0, 1);
+    afl_parse_csv(filedata, stat_buf.st_size, ',', 2, 0, 1);
 
     munmap(filedata, stat_buf.st_size);
 
