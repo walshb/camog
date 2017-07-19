@@ -130,6 +130,26 @@ def test_negative_expo_4():
     _assert_parse_same('1.1111e-315')
 
 
+def test_float_neg_zero():
+    csv_str = '''-0
+1.0
+'''
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1)[1]
+
+    assert np.all(res[0] == np.array([-0.0, 1.0]))
+
+
+def test_int_neg_zero():
+    csv_str = '''-0
+1
+'''
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1)[1]
+
+    assert np.all(res[0] == np.array([0, 1]))
+
+
 def _do_parse(i):
     v = i
     v, n = _divmod(v, _maxlen)
