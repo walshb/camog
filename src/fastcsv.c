@@ -48,7 +48,6 @@ typedef struct {
 } ArrayBuf;
 
 typedef struct {
-    LinkedBuf buf;
     width_t width;
     int first_row;
     int type;
@@ -118,6 +117,9 @@ typedef struct {
         }                                       \
     } while (0)
 
+#define NEXTCHAR2_INQUOTES(L) NEXTCHAR_INQUOTES(L)
+
+#define NEXTCHAR2_NOQUOTES(L) NEXTCHAR_NOQUOTES(L)
 
 #define LINKED_INIT(B, T)                                               \
     do {                                                                \
@@ -157,21 +159,9 @@ typedef struct {
 
 #define COLUMN_INIT(C, R, T)                    \
     do {                                        \
-        LINKED_INIT(&(C)->buf, double);         \
         (C)->width = 0;                         \
         (C)->first_row = R;                     \
         (C)->type = T;                          \
-    } while (0)
-
-#define CHANGE_TYPE(C, S, T)                                            \
-    do {                                                                \
-        LinkedLink *link;                                               \
-        for (link = (C)->buf.first; link != NULL; link = link->next) {  \
-            uchar *vp;                                                  \
-            for (vp = link->data; vp < link->ptr; vp += 8) {            \
-                *((T *)vp) = (T)*((S *)vp);                             \
-            }                                                           \
-        }                                                               \
     } while (0)
 
 int
@@ -217,10 +207,6 @@ linked_free(LinkedBuf *linked) {
 
 static int
 chunk_free(Chunk *chunk) {
-    int j;
-    for (j = 0; j < chunk->ncols; j++) {
-        linked_free(&CHUNK_COLUMN(chunk, j).buf);
-    }
     linked_free(&chunk->offset_buf);
     array_buf_free(&chunk->columns);
 
@@ -230,125 +216,105 @@ chunk_free(Chunk *chunk) {
 static int
 fill_arrays(ThreadCommon *common, Chunk *chunk)
 {
-    const LinkedLink *offset_link;
-    const uchar *offset_ptr;
-    const uchar *rowp;
+    const uchar *p;
+    const uchar *buf_end;
     int col_idx;
     int row_idx;
+    const uchar sep = common->sep;
 
     if (chunk->nrows == 0) {
         return 0;
     }
 
-    for (col_idx = 0; col_idx < chunk->ncols; col_idx++) {
-        const Column *column = &CHUNK_COLUMN(chunk, col_idx);
-        uchar *xs = column->arr_ptr;
-        const LinkedBuf *linked = &column->buf;
-        LinkedLink *link;
-        size_t nbytes, col_nbytes;
+    buf_end = chunk->buf_end;
+    p = chunk->buf;
+    row_idx = 0;
+    col_idx = 0;
+    for (row_idx = 0; row_idx < chunk->nrows; ) {
+        int nquotes = 0;
+        const uchar *cellp;
+        int col_type;
+        uchar c;
+        Column *column = &CHUNK_COLUMN(chunk, col_idx);
+        double val;
+        uchar *dest, *q;
+        int digit;
+        uint64_t value = 0;
+        int64_t sign = 1;
+        int expo = 0;
+        int fracexpo = 0;
+        int exposign = 1;
 
-        if (column->type == COL_TYPE_INT || column->type == COL_TYPE_DOUBLE) {
-
-            col_nbytes = chunk->nrows * sizeof(double);
-            if (column->first_row > 0) {
-                nbytes = column->first_row * sizeof(double);
-                memset(xs, 0, nbytes);
-                col_nbytes -= nbytes;
-                xs += nbytes;
-            }
-
-            link = linked->first;
-            if (link != NULL) {
-                nbytes = link->ptr - linked->first_data;
-                if (nbytes > col_nbytes) {
-                    nbytes = col_nbytes;
-                }
-                memcpy(xs, linked->first_data, nbytes);
-                col_nbytes -= nbytes;
-                xs += nbytes;
-                link = link->next;
-                while (link != NULL && col_nbytes > 0) {
-                    nbytes = link->ptr - link->data;
-                    if (nbytes > col_nbytes) {
-                        nbytes = col_nbytes;
-                    }
-                    memcpy(xs, link->data, nbytes);
-                    col_nbytes -= nbytes;
-                    xs += nbytes;
-                    link = link->next;
-                }
-            }
-
-            if (col_nbytes > 0) {
-                memset(xs, 0, col_nbytes);
-            }
+        if (p >= buf_end) {
+            goto comma;
         }
-    }
 
-    offset_link = chunk->offset_buf.first;
-    offset_ptr = chunk->offset_buf.first_data;
-    rowp = chunk->buf;
-    for (row_idx = 0; row_idx < chunk->nrows; row_idx++) {
-        width_t row_n_cols = *((width_t *)offset_ptr);
-        int prev_col_idx = 0;
-        int str_col_idx;
+        cellp = p;
 
-        for (str_col_idx = 0; str_col_idx < common->n_str_cols; str_col_idx++) {
-            const uchar *cellp;
-            uchar *dest;
-            const uchar *cell_end;
-            size_t cell_width;
-            const uchar *p;
-            uchar *q;
-            uchar c;
-            Column *column;
+        col_type = column->type;
 
-            col_idx = common->str_idxs[str_col_idx];
-            if (col_idx >= row_n_cols) {
-                column = &CHUNK_COLUMN(chunk, col_idx);
-                dest = column->arr_ptr + row_idx * column->width;
-;
-                memset(dest, 0, column->width);
-                continue;  /* maybe more empty columns to the right */
-            }
-            if (col_idx == 0) {
-                cellp = rowp;
+        c = *p;
+
+        if (col_type == COL_TYPE_INT || col_type == COL_TYPE_DOUBLE) {
+            if (c == '"') {
+                ++nquotes;
+                ++cellp;
+                NEXTCHAR2_INQUOTES(goodend);
+
+#include "parser2_inquotes.h"
+
             } else {
-                LINKED_STEP(offset_link, offset_ptr, width_t, col_idx - prev_col_idx);
-                cellp = rowp + *((width_t *)offset_ptr);
-            }
-            LINKED_STEP(offset_link, offset_ptr, width_t, 1);
-            cell_end = rowp + *((width_t *)offset_ptr);  /* XXX tidy up */
-            cell_width = cell_end - cellp - 1;  /* excluding separator */
 
-#if NUMPY_STRING_OBJECT
-            dest = column->arr_ptr + row_idx * sizeof(PyObject *);
-            Py_SIZE(*((PyObject **)dest)) = cell_width;
-            dest = PyString_AsString(*(PyObject **)dest);
-            memcpy(dest, cellp, cell_width);
-#else
-            column = &CHUNK_COLUMN(chunk, col_idx);
+#include "parser2.h"
+
+            }
+
+        goodend:
+
+            dest = column->arr_ptr + row_idx * sizeof(int64_t);
+            if (col_type == COL_TYPE_INT) {
+                *((int64_t *)dest) = value * sign;
+            } else {
+                expo = expo * exposign - fracexpo;
+                if (expo >= 0) {
+                    if (expo > 309) {
+                        expo = 309;
+                    }
+                    val = (double)value * powers[expo + 324] * sign;
+                } else {
+                    /* more accurate to divide by precise value */
+                    if (expo < -308) {
+                        if (expo < -324) {
+                            expo = -324;
+                        }
+                        val = (double)value / 1.0e308 / powers[324 - expo - 308] * sign;
+                    } else {
+                        val = (double)value / powers[324 - expo] * sign;
+                    }
+                }
+                *((double *)dest) = val;
+            }
+        } else {  /* string */
+
             dest = column->arr_ptr + row_idx * column->width;
-            p = cellp;
             q = dest;
 
-            if (cell_width == 0) {
-                goto atstringend;
-            }
-
-            c = *p++;
             if (c == '"') {
+                ++nquotes;
+                ++cellp;
                 /* c is opening quote here */
                 while (1) {
-                    if (p >= (cell_end - 1)) {
+                    ++p;
+                    if (p >= buf_end) {
                         goto atstringend;
                     }
-                    c = *p++;
+                    c = *p;
                     if (c == '"') {
-                        if (p >= (cell_end - 1)) {
+                        ++p;
+                        if (p >= buf_end) {
                             goto atstringend;
                         }
-                        c = *p++;
+                        c = *p;
                         if (c != '"') {
                             break;
                         }
@@ -358,23 +324,48 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
             }
             /* c is non-quoted char here */
             while (1) {
-                *q++ = c;
-                if (p >= (cell_end - 1)) {
+                if (c == sep || c == '\n') {
                     goto atstringend;
                 }
-                c = *p++;
+                *q++ = c;
+                ++p;
+                if (p >= buf_end) {
+                    goto atstringend;
+                }
+                c = *p;
             }
         atstringend:
             if ((q - dest) < column->width) {
                 memset(q, 0, column->width - (q - dest));
             }
-#endif
-
-            prev_col_idx = col_idx + 1;
         }
-        LINKED_STEP(offset_link, offset_ptr, width_t, row_n_cols - prev_col_idx);
-        rowp += *((width_t *)offset_ptr);
-        LINKED_STEP(offset_link, offset_ptr, width_t, 1);
+
+    bad:
+    badend:
+    comma:
+
+        if (p >= buf_end || c == '\n') {
+            for (col_idx++; col_idx < chunk->ncols; col_idx++) {
+                Column *column = &CHUNK_COLUMN(chunk, col_idx);
+                int col_type = column->type;
+                uchar *dest;
+                if (col_type == COL_TYPE_INT) {
+                    dest = column->arr_ptr + row_idx * sizeof(int64_t);
+                    *((int64_t *)dest) = 0;
+                } else if (col_type == COL_TYPE_DOUBLE) {
+                    dest = column->arr_ptr + row_idx * sizeof(double);
+                    *((double *)dest) = 0.0;
+                } else {
+                    dest = column->arr_ptr + row_idx * column->width;
+                    memset(dest, 0, column->width);
+                }
+            }
+            col_idx = 0;
+            row_idx++;
+        } else {
+            col_idx++;
+        }
+        p++;
     }
 
     return 0;
@@ -426,11 +417,7 @@ allocate_arrays(ThreadCommon *common)
             array_buf_enlarge(&chunks[i].columns, ncols * sizeof(Column));
             column = &CHUNK_COLUMN(&chunks[i], col_idx);
             if (col_idx >= chunks[i].ncols) {
-                column->buf.first = NULL;
                 column->first_row = 0;
-            } else if (column->buf.own_data
-                       && column->type == COL_TYPE_INT && col_type == COL_TYPE_DOUBLE) {
-                CHANGE_TYPE(column, int64_t, double);
             }
             column->type = col_type;
             column->width = width;
@@ -477,10 +464,6 @@ allocate_arrays(ThreadCommon *common)
 
     /* Give each chunk the same number of columns */
     for (i = 0; i < nchunks; i++) {
-        int col_idx;
-        for (col_idx = chunks[i].ncols; col_idx < ncols; col_idx++) {
-            CHUNK_COLUMN(&chunks[i], col_idx).buf.own_data = 0;
-        }
         chunks[i].ncols = ncols;
     }
 
@@ -504,12 +487,8 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
     int col_idx = 0, row_idx = -1;  /* currently not parsing a row */
     int ncols = 0;
     uchar c = 0;
-    width_t *row_np;
 
     LINKED_INIT(offset_buf, width_t);
-
-    LINKED_PUT(offset_buf, width_t, 0);
-    row_np = &((width_t *)offset_buf->last->ptr)[-1];
 
     if (chunk->chunk_idx > 0) {
         while (1) {
@@ -534,12 +513,6 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
         /* Start of cell */
 
         width_t width = 0;
-        double val;
-        uint64_t value = 0;
-        int64_t sign = 1;
-        int expo = 0;
-        int fracexpo = 0;
-        int exposign = 1;
         int nquotes = 0;
         int col_type;
         int digit;
@@ -582,43 +555,17 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
 
         }
 
-        if (nquotes == 1 || (c != sep && c != '\n')) {
-            goto bad;
+        if (nquotes != 1 && (c == sep || c == '\n')) {
+            goto comma;
         }
-
-    goodend:
-        if (col_type == COL_TYPE_INT) {
-            LINKED_PUT(&columns[col_idx].buf, int64_t, value * sign);
-        } else {
-            expo = expo * exposign - fracexpo;
-            if (expo >= 0) {
-                if (expo > 309) {
-                    expo = 309;
-                }
-                val = (double)value * powers[expo + 324] * sign;
-            } else {
-                /* more accurate to divide by precise value */
-                if (expo < -308) {
-                    if (expo < -324) {
-                        expo = -324;
-                    }
-                    val = (double)value / 1.0e308 / powers[324 - expo - 308] * sign;
-                } else {
-                    val = (double)value / powers[324 - expo] * sign;
-                }
-            }
-            LINKED_PUT(&columns[col_idx].buf, double, val);
-        }
-
-        goto comma;
-
-    badend:
-        columns[col_idx].type = COL_TYPE_STRING;
-        goto comma;
 
     bad:
         columns[col_idx].type = COL_TYPE_STRING;
         goto atstringbegin;
+
+    badend:
+        columns[col_idx].type = COL_TYPE_STRING;
+        goto comma;
 
     parsestring:
         if (c == '"') {
@@ -661,6 +608,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
             c = *p;
         }
 
+    goodend:
     comma:
         width = (width_t)(p - cellp);
         if (width > columns[col_idx].width) {
@@ -671,19 +619,8 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
             goto athardend;
         }
 
-        LINKED_PUT(offset_buf, width_t, (width_t)(p - rowp + 1));
-
         if (c == '\n') {
-            *row_np = col_idx + 1;  /* ncols */
-
-            for (col_idx++ ; col_idx < ncols; col_idx++) {
-                /* ragged right */
-                if (columns[col_idx].type == COL_TYPE_INT) {
-                    LINKED_PUT(&columns[col_idx].buf, int64_t, 0);
-                } else if (columns[col_idx].type == COL_TYPE_DOUBLE) {
-                    LINKED_PUT(&columns[col_idx].buf, double, 0.0);
-                }
-            }
+            LINKED_PUT(offset_buf, width_t, (width_t)(p - rowp + 1));
 
             if (p >= soft_end) {  /* newline (ie. p) >= soft_end */
                 /* break out before we get set for new row */
@@ -693,8 +630,6 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
             col_idx = 0;
             row_idx++;
             rowp = p + 1;
-            LINKED_PUT(offset_buf, width_t, 0);
-            row_np = &((width_t *)offset_buf->last->ptr)[-1];
         } else {
             col_idx++;
         }
@@ -705,7 +640,6 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
 
     /* pretend separator for consistency */
     LINKED_PUT(offset_buf, width_t, (width_t)(p - rowp + 1));
-    *row_np = col_idx + 1;  /* ncols */
 
     /* empty last line? */
     if (p == rowp) {
@@ -728,9 +662,6 @@ fixup_parse(ThreadCommon *common)
     LinkedLink *offset_link;
     uchar *offset_ptr;
     const uchar *rowp;
-    LinkedLink **val_links;
-    uchar **val_ptrs;
-    int col_idx;
     int first_row;
     int i, previ;
 
@@ -764,13 +695,6 @@ fixup_parse(ThreadCommon *common)
     offset_ptr = offset_link->data;
     rowp = bigchunk->buf;
 
-    val_links = (LinkedLink **)malloc(bigchunk->ncols * sizeof(LinkedLink *));
-    val_ptrs = (uchar **)malloc(bigchunk->ncols * sizeof(uchar *));
-    for (col_idx = 0; col_idx < bigchunk->ncols; col_idx++) {
-        val_links[col_idx] = CHUNK_COLUMN(bigchunk, col_idx).buf.first;
-        val_ptrs[col_idx] = CHUNK_COLUMN(bigchunk, col_idx).buf.first_data;
-    }
-
     first_row = 0;
     for ( ; i < common->nchunks; i++) {
         Chunk *chunk = &common->all_chunks[i];
@@ -785,8 +709,6 @@ fixup_parse(ThreadCommon *common)
         chunk->offset_buf.first_data = offset_ptr;
 
         while (rowp < chunk->soft_end) {
-            width_t row_n_cols = *((width_t *)offset_ptr);
-            LINKED_STEP(offset_link, offset_ptr, width_t, row_n_cols);
             rowp += *((width_t *)offset_ptr);
             LINKED_STEP(offset_link, offset_ptr, width_t, 1);
             nrows++;
@@ -806,12 +728,6 @@ fixup_parse(ThreadCommon *common)
 
             column = &CHUNK_COLUMN(chunk, col_idx);
 
-            if (col_idx < chunk->ncols) {
-                linked_free(&column->buf);
-            }
-
-            column->buf.own_data = 0;
-
             column->type = bigcolumn->type;
             column->width = bigcolumn->width;
             if (bigcolumn->first_row > first_row) {
@@ -820,42 +736,12 @@ fixup_parse(ThreadCommon *common)
                 column->first_row = 0;
             }
 
-            if (column->type == COL_TYPE_INT || column->type == COL_TYPE_DOUBLE) {
-                LinkedLink *val_link = val_links[col_idx];
-                uchar *val_ptr = val_ptrs[col_idx];
-                size_t inc = (nrows - column->first_row) * sizeof(double);
-
-                column->buf.own_data = bigcolumn->buf.own_data;
-                bigcolumn->buf.own_data = 0;
-                column->buf.first = val_link;
-                column->buf.first_data = val_ptr;
-                while (inc >= val_link->data + LINKED_MAX - val_ptr) {
-                    inc -= val_link->data + LINKED_MAX - val_ptr;
-                    val_link = val_link->next;
-                    val_ptr = val_link->data;
-                }
-                val_ptr += inc;
-
-                val_links[col_idx] = val_link;
-                val_ptrs[col_idx] = val_ptr;
-
-                column->buf.last = val_link;
-            }
-
             ncols++;
-        }
-
-        for (col_idx = ncols; col_idx < chunk->ncols; col_idx++) {
-            Column *column = &CHUNK_COLUMN(chunk, col_idx);
-            linked_free(&column->buf);
         }
 
         chunk->ncols = ncols;
         first_row += nrows;
     }
-
-    free(val_links);
-    free(val_ptrs);
 
     return 0;
 }

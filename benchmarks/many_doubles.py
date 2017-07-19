@@ -40,24 +40,23 @@ def main():
 
     _logger.info('data size ~= %.1f MB', args.n * 3.0 * 8.0 / (1024.0 * 1024.0))
 
-    total = 0.0
+    mintime = 1.0e6
     for i in xrange(args.nsamples):
         t0 = datetime.datetime.now()
 
         cols = cfastcsv.parse_csv(data, ',', args.nthreads)[1]
 
         took = (datetime.datetime.now() - t0).total_seconds()
-        total += took
+        if took < mintime:
+            mintime = took
 
         _logger.debug('parse_csv took %.4f s', took)
 
         _logger.info('rows = %s cols = %s', len(cols[0]), len(cols))
 
-    res = total / float(args.nsamples)
+    _logger.info('minimum %.4f s', mintime)
 
-    _logger.info('average %.4f s', res)
-
-    print res
+    print mintime
 
     return 0
 

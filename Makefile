@@ -20,8 +20,10 @@ all:	parser
 parser:
 	mkdir -p gensrc
 	python ./generator/powers.py >gensrc/powers.h
-	python ./generator/parser.py --nextchar=NEXTCHAR_NOQUOTES --label-prefix=noquotes >gensrc/parser.h
-	python ./generator/parser.py --nextchar=NEXTCHAR_INQUOTES --label-prefix=inquotes >gensrc/parser_inquotes.h
+	python ./generator/parser.py --type-stage --nextchar=NEXTCHAR_NOQUOTES --label-prefix=noquotes >gensrc/parser.h
+	python ./generator/parser.py --type-stage --nextchar=NEXTCHAR_INQUOTES --label-prefix=inquotes >gensrc/parser_inquotes.h
+	python ./generator/parser.py --nextchar=NEXTCHAR2_NOQUOTES --label-prefix=noquotes >gensrc/parser2.h
+	python ./generator/parser.py --nextchar=NEXTCHAR2_INQUOTES --label-prefix=inquotes >gensrc/parser2_inquotes.h
 
 clean:
 	rm -rf $$(find . \( -name '*.so' -o -name '__pycache__' \) -print) gensrc build .cache

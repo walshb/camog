@@ -8,3 +8,4 @@
 /build/
 /gensrc/
 /afl/csvread
+/ctests/test_numbers

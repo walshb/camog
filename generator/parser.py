@@ -29,7 +29,6 @@ _label_idx = 0
 
 _label_prefix = ''
 
-
 def _emit(args, s):
     global _indent
 
@@ -259,30 +258,34 @@ def main():
 
     parser.add_argument('--nextchar', default='NEXTCHAR')
     parser.add_argument('--label-prefix', default='')
+    parser.add_argument('--type-stage', default=False, action='store_true')
 
     args = parser.parse_args()
 
     _label_prefix = args.label_prefix
 
+    t = (lambda s: s) if args.type_stage else (lambda s: '')
+    p = (lambda s: '') if args.type_stage else (lambda s: s)
+
     spaces = Multiple(SingleChar("c == ' '", ""))
 
     plus = SingleChar("c == '+'", "")
-    minus = SingleChar("c == '-'", "sign = -1;")
+    minus = SingleChar("c == '-'", p("sign = -1;"))
     plus_or_minus = Or(plus, Or(minus, Nothing()))
 
-    change_to_double = "if (col_type == COL_TYPE_INT) { CHANGE_TYPE(&columns[col_idx], int64_t, double); columns[col_idx].type = col_type = COL_TYPE_DOUBLE; }"
+    change_to_double = "if (col_type == COL_TYPE_INT) { columns[col_idx].type = col_type = COL_TYPE_DOUBLE; }"
 
-    dot = SingleChar("c == '.'", change_to_double)
-    digit = SingleChar("(digit = c ^ '0') <= 9", "value = value * 10 + digit;")
-    frac_digit = SingleChar("(digit = c ^ '0') <= 9", "value = value * 10 + digit; ++fracexpo;")
+    dot = SingleChar("c == '.'", t(change_to_double))
+    digit = SingleChar("(digit = c ^ '0') <= 9", p("value = value * 10 + digit;"))
+    frac_digit = SingleChar("(digit = c ^ '0') <= 9", p("value = value * 10 + digit; ++fracexpo;"))
 
     expo_plus = SingleChar("c == '+'", "")
-    expo_minus = SingleChar("c == '-'", "exposign = -1;")
+    expo_minus = SingleChar("c == '-'", p("exposign = -1;"))
     expo_plus_or_minus = Or(expo_plus, Or(expo_minus, Nothing()))
 
-    expo_digit = SingleChar("(digit = c ^ '0') <= 9", "expo = (expo * 10 + digit) & 511;")
+    expo_digit = SingleChar("(digit = c ^ '0') <= 9", p("expo = (expo * 10 + digit) & 511;"))
 
-    expo = _seq(SingleChar("(c | 32) == 'e'", change_to_double),
+    expo = _seq(SingleChar("(c | 32) == 'e'", t(change_to_double)),
                 expo_plus_or_minus,
                 expo_digit,
                 Multiple(expo_digit))
