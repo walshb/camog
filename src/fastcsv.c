@@ -595,13 +595,16 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
                     expo = 309;
                 }
                 val = (double)value * powers[expo + 324] * sign;
-            } else if (expo < -309) {
-                if (expo < -324) {
-                    expo = -324;
+            } else {
+                /* more accurate to divide by precise value */
+                if (expo < -308) {
+                    if (expo < -324) {
+                        expo = -324;
+                    }
+                    val = (double)value / 1.0e308 / powers[324 - expo - 308] * sign;
+                } else {
+                    val = (double)value / powers[324 - expo] * sign;
                 }
-                val = (double)value * powers[expo + 324] * sign;
-            } else {  /* more accurate to divide by precise value */
-                val = (double)value / powers[324 - expo] * sign;
             }
             LINKED_PUT(&columns[col_idx].buf, double, val);
         }

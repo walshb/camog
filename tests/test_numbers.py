@@ -114,6 +114,22 @@ def test_rounding():
     _assert_parse_same('.11111')
 
 
+def test_negative_expo_1():
+    _assert_parse_same('1e-300')
+
+
+def test_negative_expo_2():
+    _assert_parse_same('1e-320')
+
+
+def test_negative_expo_3():
+    _assert_parse_same('1.1111e-304')
+
+
+def test_negative_expo_4():
+    _assert_parse_same('1.1111e-315')
+
+
 def _do_parse(i):
     v = i
     v, n = _divmod(v, _maxlen)
