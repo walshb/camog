@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CC := gcc
-CFLAGS := -Werror -O0 -g3 -I../src -I../gensrc
+CC := clang
+CFLAGS := -Werror -O2 -I../src -I../gensrc
 
 .PHONY:	clean parser setupfuzz fuzz
 
@@ -37,7 +37,7 @@ setupfuzz:
 
 fuzz:
 	make clean
-	make csvread CC=$(AFL_DIR)/afl-gcc
+	AFL_USE_ASAN=1 make csvread CC=$(AFL_DIR)/afl-$(CC)
 	mkdir -p /mnt/afl/testcase_dir
 	/bin/echo -e 'abc,def,ghi\n123,456.0,foo' >/mnt/afl/testcase_dir/test.csv
-	$(AFL_DIR)/afl-fuzz -i /mnt/afl/testcase_dir -o /mnt/afl/findings_dir -- $(CURDIR)/csvread @@
+	$(AFL_DIR)/afl-fuzz -i /mnt/afl/testcase_dir -o /mnt/afl/findings_dir -m none -- $(CURDIR)/csvread @@

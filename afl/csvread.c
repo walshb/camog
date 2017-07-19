@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -24,22 +25,48 @@
 
 #include "fastcsv.h"
 
+#define BUF_SIZE (8 * 1024 * 1024)
+
+typedef struct {
+    FastCsvResult r;
+    void *buf;
+    void *buf_last;
+    ssize_t nrows;
+    int nthreads;
+} AflFastCsvResult;
+
 static void *
 afl_add_column(FastCsvResult *res, int col_type, size_t nrows, size_t width)
 {
     void *arr;
+    AflFastCsvResult *aflres = (AflFastCsvResult *)res;
 
-    fprintf(stderr, "Adding column.\n");
+    if (aflres->nrows >= 0 && nrows != aflres->nrows) {
+        fprintf(stderr, "nrows changed from %zd to %zu\n", aflres->nrows, nrows);
+        abort();
+    }
 
     switch (col_type) {
     case COL_TYPE_INT:
-        return malloc(nrows * sizeof(uint64_t));
+        width = sizeof(uint64_t);
+        break;
     case COL_TYPE_DOUBLE:
-        return malloc(nrows * sizeof(double));
-    default:
-        return malloc(nrows * width);
+        width = sizeof(double);
+        break;
     }
-    return NULL;
+
+    if ((aflres->buf_last - aflres->buf + nrows * width) > BUF_SIZE) {
+        fprintf(stderr, "Past buf limit.\n");
+        exit(1);
+    }
+
+    fprintf(stderr, "nthreads %d adding column %zd * %zd\n",
+            aflres->nthreads, nrows, width);
+
+    arr = aflres->buf_last;
+    aflres->buf_last += nrows * width;
+
+    return arr;
 }
 
 static int
@@ -48,12 +75,11 @@ afl_add_header(FastCsvResult *res, const uchar *str, size_t len)
     return 0;
 }
 
-static int
+static AflFastCsvResult *
 afl_parse_csv(const uchar *csv_buf, size_t buf_len, uchar sep, int nthreads,
-              int flags, int nheaders)
+              int flags, int nheaders, AflFastCsvResult *result)
 {
     FastCsvInput input;
-    FastCsvResult result;
 
     input.csv_buf = csv_buf;
     input.buf_len = buf_len;
@@ -62,12 +88,16 @@ afl_parse_csv(const uchar *csv_buf, size_t buf_len, uchar sep, int nthreads,
     input.flags = flags;
     input.nheaders = nheaders;
 
-    result.add_header = &afl_add_header;
-    result.add_column = &afl_add_column;
+    result->r.add_header = &afl_add_header;
+    result->r.add_column = &afl_add_column;
+    result->buf = malloc(BUF_SIZE);
+    result->buf_last = result->buf;
+    result->nrows = -1;
+    result->nthreads = nthreads;
 
-    parse_csv(&input, &result);
+    parse_csv(&input, (FastCsvResult *)result);
 
-    return 0;
+    return result;
 }
 
 int main(int argc, char *argv[])
@@ -75,6 +105,8 @@ int main(int argc, char *argv[])
     void *filedata;
     int fd;
     struct stat stat_buf;
+    AflFastCsvResult result1, result2;
+    size_t len1, len2;
 
     if (argc != 2) {
         fprintf(stderr, "Usage: csvread filename\n");
@@ -94,7 +126,17 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    afl_parse_csv(filedata, stat_buf.st_size, ',', 2, 0, 1);
+    afl_parse_csv(filedata, stat_buf.st_size, ',', 3, 0, 1, &result1);
+
+    afl_parse_csv(filedata, stat_buf.st_size, ',', 1, 0, 1, &result2);
+
+    len1 = result1.buf_last - result1.buf;
+    len2 = result2.buf_last - result2.buf;
+    if (len1 != len2 || memcmp(result1.buf, result2.buf, len1) != 0) {
+        fprintf(stderr, "len1 = %zd len2 = %zd\n", len1, len2);
+        fprintf(stderr, "different result with threads\n");
+        abort();
+    }
 
     munmap(filedata, stat_buf.st_size);
 
