@@ -428,7 +428,8 @@ allocate_arrays(ThreadCommon *common)
             if (col_idx >= chunks[i].ncols) {
                 column->buf.first = NULL;
                 column->first_row = 0;
-            } else if (column->type == COL_TYPE_INT && col_type == COL_TYPE_DOUBLE) {
+            } else if (column->buf.own_data
+                       && column->type == COL_TYPE_INT && col_type == COL_TYPE_DOUBLE) {
                 CHANGE_TYPE(column, int64_t, double);
             }
             column->type = col_type;
@@ -522,7 +523,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
             }
         }
         chunk->buf = p;
-        if (p >= soft_end) {
+        if (p > soft_end) {  /* newline (ie. p-1) >= soft_end */
             goto finished;
         }
     }
@@ -731,16 +732,20 @@ fixup_parse(ThreadCommon *common)
     uchar **val_ptrs;
     int col_idx;
     int first_row;
-    int i;
+    int i, previ;
 
+    previ = 0;
     for (i = 1; ; i++) {
         if (i >= common->nchunks) {
             return 0;
         }
-        if (common->all_chunks[i].buf < common->all_chunks[i].buf_end
-            && common->all_chunks[i - 1].found_end + 1 != common->all_chunks[i].buf) {
+        if (common->all_chunks[i].nrows == 0) {
+            continue;  /* empty chunk */
+        }
+        if (common->all_chunks[previ].found_end + 1 != common->all_chunks[i].buf) {
             break;
         }
+        previ = i;
     }
 
     bigchunk = (Chunk *)malloc(sizeof(Chunk));
@@ -748,9 +753,9 @@ fixup_parse(ThreadCommon *common)
 
     /* fix everything from chunk[i] onward */
     bigchunk->chunk_idx = i;
-    bigchunk->buf = common->all_chunks[i - 1].found_end;
-    bigchunk->soft_end = common->all_chunks[i - 1].buf_end;
-    bigchunk->buf_end = common->all_chunks[i - 1].buf_end;
+    bigchunk->buf = common->all_chunks[previ].found_end;
+    bigchunk->soft_end = common->all_chunks[previ].buf_end;
+    bigchunk->buf_end = common->all_chunks[previ].buf_end;
     array_buf_init(&bigchunk->columns);
 
     parse_stage1(common, bigchunk);
@@ -790,20 +795,22 @@ fixup_parse(ThreadCommon *common)
         chunk->nrows = nrows;
 
         for (col_idx = 0; col_idx < bigchunk->ncols; col_idx++) {
-            const Column *bigcolumn = &CHUNK_COLUMN(bigchunk, col_idx);
+            Column *bigcolumn = &CHUNK_COLUMN(bigchunk, col_idx);
             Column *column;
 
             if (bigcolumn->first_row >= first_row + nrows) {
                 break;
             }
 
-            array_buf_enlarge(&chunk->columns, col_idx * sizeof(Column));
+            array_buf_enlarge(&chunk->columns, (col_idx + 1) * sizeof(Column));
+
             column = &CHUNK_COLUMN(chunk, col_idx);
 
             if (col_idx < chunk->ncols) {
                 linked_free(&column->buf);
-                column->buf.own_data = 0;
             }
+
+            column->buf.own_data = 0;
 
             column->type = bigcolumn->type;
             column->width = bigcolumn->width;
@@ -818,7 +825,8 @@ fixup_parse(ThreadCommon *common)
                 uchar *val_ptr = val_ptrs[col_idx];
                 size_t inc = (nrows - column->first_row) * sizeof(double);
 
-                column->buf.own_data = 0;
+                column->buf.own_data = bigcolumn->buf.own_data;
+                bigcolumn->buf.own_data = 0;
                 column->buf.first = val_link;
                 column->buf.first_data = val_ptr;
                 while (inc >= val_link->data + LINKED_MAX - val_ptr) {

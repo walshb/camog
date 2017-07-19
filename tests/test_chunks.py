@@ -99,3 +99,73 @@ def test_fixup_memory_2():
     assert len(res) == 2
     assert np.all(res[0] == np.array(['0,0,0,0,0,0,0,0,\n', '1,1,1,1,1,1,1\n', '', '1', '2', '3', '4', '9']))
     assert np.all(res[1] == np.array([0, 0, 0, 0, 0, 0, 0, 9]))
+
+
+def test_empty_middle_chunk():
+    csv_str = '''a12,456.0
+a12
+'''
+
+    n = len(csv_str)
+    str1 = csv_str[n // 3:n * 2 // 3]
+    str2 = csv_str[n * 2 // 3:]
+    assert '\n' not in str1
+    assert str2.startswith('\n')
+
+    res = _do_parse_csv(csv_str, nthreads=3)
+
+    assert len(res) == 2
+    assert np.all(res[0] == np.array(['a12', 'a12']))
+    assert np.all(res[1] == np.array([456.0, 0.0]))
+
+
+def test_chunk_boundary():
+    csv_str = '''a123456789012
+a12,a123'''
+
+    n = len(csv_str)
+    str1 = csv_str[n // 3:n * 2 // 3]
+    str2 = csv_str[n * 2 // 3:]
+    assert str1.endswith('\n')
+    assert '\n' not in str2
+
+    res = _do_parse_csv(csv_str, nthreads=3)
+
+    assert len(res) == 2
+    assert np.all(res[0] == np.array(['a123456789012', 'a12']))
+    assert np.all(res[1] == np.array(['', 'a123']))
+
+
+def test_empty_chunk_in_string():
+    csv_str = '''a1234,"a12
+
+345"
+'''
+
+    n = len(csv_str)
+    str1 = csv_str[n // 3:n * 2 // 3]
+    str2 = csv_str[n * 2 // 3:]
+
+    assert '"' in str1
+    assert str1.endswith('\n')
+    assert str2.startswith('\n')
+
+    res = _do_parse_csv(csv_str, nthreads=3)
+
+    assert len(res) == 2
+    assert np.all(res[0] == np.array(['a1234']))
+    assert np.all(res[1] == np.array(['a12\n\n345']))
+
+
+def test_change_type():
+    csv_str = '''.0,"12
+a123456789012
+a1234"
+12,"
+a1234
+a123"'''
+
+    res = _do_parse_csv(csv_str, nthreads=3)
+
+    assert np.all(res[0] == np.array([0.0, 12.0]))
+    assert np.all(res[1] == np.array(['12\na123456789012\na1234', '\na1234\na123']))
