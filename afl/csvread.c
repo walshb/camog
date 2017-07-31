@@ -107,6 +107,8 @@ int main(int argc, char *argv[])
     struct stat stat_buf;
     AflFastCsvResult result1, result2;
     size_t len1, len2;
+    const uchar *data;
+    int nthreads;
 
     if (argc != 2) {
         fprintf(stderr, "Usage: csvread filename\n");
@@ -120,15 +122,23 @@ int main(int argc, char *argv[])
 
     fstat(fd, &stat_buf);
 
+    if (stat_buf.st_size == 0) {
+        return 0;
+    }
+
     if ((filedata = mmap(NULL, stat_buf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
         close(fd);
         fprintf(stderr, "%s: mmap failed\n", argv[1]);
         return 1;
     }
 
-    afl_parse_csv(filedata, stat_buf.st_size, ',', 3, 0, 1, &result1);
+    data = (const uchar *)filedata;
 
-    afl_parse_csv(filedata, stat_buf.st_size, ',', 1, 0, 1, &result2);
+    nthreads = (data[0] & 3) + 2;
+
+    afl_parse_csv(&data[1], stat_buf.st_size - 1, ',', nthreads, 0, 1, &result1);
+
+    afl_parse_csv(&data[1], stat_buf.st_size - 1, ',', 1, 0, 1, &result2);
 
     len1 = result1.buf_last - result1.buf;
     len2 = result2.buf_last - result2.buf;

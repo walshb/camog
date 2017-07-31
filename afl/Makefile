@@ -39,5 +39,5 @@ fuzz:
 	make clean
 	AFL_USE_ASAN=1 make csvread CC=$(AFL_DIR)/afl-$(CC)
 	mkdir -p /mnt/afl/testcase_dir
-	/bin/echo -e 'abc,def,ghi\n123,456.0,foo' >/mnt/afl/testcase_dir/test.csv
+	/bin/echo -e '1abc,def,ghi\n123,456.0,foo' >/mnt/afl/testcase_dir/test.csv
 	$(AFL_DIR)/afl-fuzz -i /mnt/afl/testcase_dir -o /mnt/afl/findings_dir -m none -- $(CURDIR)/csvread @@
