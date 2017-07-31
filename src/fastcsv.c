@@ -17,7 +17,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <pthread.h>
+#include <math.h>
 
 #include "osx_pthread_barrier.h"
 
@@ -77,6 +79,8 @@ typedef struct {
     int n_str_cols;
     FastCsvResult *result;
     uchar sep;
+    int64_t missing_int_val;
+    double missing_float_val;
 } ThreadCommon;
 
 typedef struct {
@@ -273,24 +277,33 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
 
             dest = column->arr_ptr + row_idx * sizeof(int64_t);
             if (col_type == COL_TYPE_INT) {
+                if (p == cellp) {
+                    value = common->missing_int_val;
+                }
                 *((int64_t *)dest) = value * sign;
             } else {
-                expo = expo * exposign - fracexpo;
-                if (expo >= 0) {
-                    if (expo > 309) {
-                        expo = 309;
-                    }
-                    val = (long double)value * powers[expo] * sign;
+                if (p == cellp) {
+                    val = common->missing_float_val;
+                } else if (expo == INT_MIN) {
+                    val = 0.0 / 0.0;  /* NaN */
                 } else {
-                    /* more accurate to divide by precise value */
-                    expo = -expo;
-                    if (expo > 308) {
-                        if (expo > 340) {
-                            expo = 340;
+                    expo = expo * exposign - fracexpo;
+                    if (expo >= 0) {
+                        if (expo > 309) {
+                            expo = 309;
                         }
-                        val = (long double)value / 1.0e308 / powers[expo - 308] * sign;
+                        val = (long double)value * powers[expo] * sign;
                     } else {
-                        val = (long double)value / powers[expo] * sign;
+                        /* more accurate to divide by precise value */
+                        expo = -expo;
+                        if (expo > 308) {
+                            if (expo > 340) {
+                                expo = 340;
+                            }
+                            val = (long double)value / 1.0e308 / powers[expo - 308] * sign;
+                        } else {
+                            val = (long double)value / powers[expo] * sign;
+                        }
                     }
                 }
                 *((double *)dest) = val;
@@ -352,10 +365,10 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
                 uchar *dest;
                 if (col_type == COL_TYPE_INT) {
                     dest = column->arr_ptr + row_idx * sizeof(int64_t);
-                    *((int64_t *)dest) = 0;
+                    *((int64_t *)dest) = common->missing_int_val;
                 } else if (col_type == COL_TYPE_DOUBLE) {
                     dest = column->arr_ptr + row_idx * sizeof(double);
-                    *((double *)dest) = 0.0;
+                    *((double *)dest) = common->missing_float_val;
                 } else {
                     dest = column->arr_ptr + row_idx * column->width;
                     memset(dest, 0, column->width);
@@ -866,6 +879,22 @@ parse_headers(ThreadCommon *common, const uchar *csv_buf, const uchar *buf_end)
 }
 
 int
+init_csv(FastCsvInput *input, const uchar *csv_buf, size_t buf_len,
+         int nheaders, int nthreads)
+{
+    input->csv_buf = csv_buf;
+    input->buf_len = buf_len;
+    input->nheaders = nheaders;
+    input->nthreads = nthreads;
+    input->sep = ',';
+    input->flags = 0;
+    input->missing_int_val = 0;
+    input->missing_float_val = NAN;
+
+    return 0;
+}
+
+int
 parse_csv(const FastCsvInput *input, FastCsvResult *res)
 {
     size_t buf_len = input->buf_len;
@@ -889,6 +918,8 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
     common.flags = input->flags;
     common.sep = input->sep;
     common.result = res;
+    common.missing_int_val = input->missing_int_val;
+    common.missing_float_val = input->missing_float_val;
     pthread_barrier_init(&common.barrier1, NULL, nthreads);
     pthread_barrier_init(&common.barrier2, NULL, nthreads);
 

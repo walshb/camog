@@ -81,12 +81,9 @@ afl_parse_csv(const uchar *csv_buf, size_t buf_len, uchar sep, int nthreads,
 {
     FastCsvInput input;
 
-    input.csv_buf = csv_buf;
-    input.buf_len = buf_len;
+    init_csv(&input, csv_buf, buf_len, nheaders, nthreads);
     input.sep = sep;
-    input.nthreads = nthreads;
     input.flags = flags;
-    input.nheaders = nheaders;
 
     result->r.add_header = &afl_add_header;
     result->r.add_column = &afl_add_column;

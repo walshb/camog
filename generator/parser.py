@@ -266,6 +266,7 @@ def main():
 
     t = (lambda s: s) if args.type_stage else (lambda s: '')
     p = (lambda s: '') if args.type_stage else (lambda s: s)
+    tp = (lambda s1, s2: s1) if args.type_stage else (lambda s1, s2: s2)
 
     spaces = Multiple(SingleChar("c == ' '", ""))
 
@@ -290,6 +291,12 @@ def main():
                 expo_digit,
                 Multiple(expo_digit))
 
+    null_expr = Or(_seq(SingleChar("(c | 32) == 'n'", ""),
+                        SingleChar("(c | 32) == 'a'", ""),
+                        SingleChar("(c | 32) == 'n'",
+                                   tp(change_to_double, "expo = INT_MIN;"))),
+                   Nothing())
+
     expr = _seq(spaces,
                 Or(_seq(plus_or_minus,
                         Or(_seq(digit,
@@ -303,7 +310,7 @@ def main():
                         Or(expo,
                            Nothing()),
                         spaces),
-                   Nothing()))
+                   null_expr))
 
     _doparse(args, expr)
 

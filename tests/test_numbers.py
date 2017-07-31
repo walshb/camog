@@ -150,6 +150,61 @@ def test_int_neg_zero():
     assert np.all(res[0] == np.array([0, 1]))
 
 
+def test_missing_int_val():
+    csv_str = '\n'
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 123, 0.0)[1]
+
+    assert res[0].dtype == int
+    assert len(res[0]) == 1
+    assert np.all(res[0] == np.array([123]))
+
+
+def test_missing_int_val_2():
+    csv_str = '1\n1\n1,3\n'
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 123, 0.0)[1]
+
+    assert res[0].dtype == int
+    assert res[1].dtype == int
+    assert len(res[0]) == 3
+    assert len(res[1]) == 3
+    assert np.all(res[0] == np.array([1, 1, 1]))
+    assert np.all(res[1] == np.array([123, 123, 3]))
+
+
+def test_missing_float_val():
+    csv_str = '\n12.'
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 0, 456.0)[1]
+
+    assert res[0].dtype == float
+    assert len(res[0]) == 2
+    assert np.all(res[0] == np.array([456.0, 12.0]))
+
+
+def test_missing_float_val2():
+    csv_str = '1\n1\n1,3.0\n'
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 0, 456.0)[1]
+
+    assert res[0].dtype == int
+    assert res[1].dtype == float
+    assert len(res[0]) == 3
+    assert len(res[1]) == 3
+    assert np.all(res[0] == np.array([1, 1, 1]))
+    assert np.all(res[1] == np.array([456.0, 456.0, 3.0]))
+
+
+def test_nan():
+    csv_str = 'nan'
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 0, 456.0)[1]
+
+    assert res[0].dtype == float
+    assert np.all(np.isnan(res[0]))
+
+
 def _do_parse(i):
     v = i
     v, n = _divmod(v, _maxlen)

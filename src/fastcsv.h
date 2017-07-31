@@ -34,12 +34,16 @@ typedef struct {
     int nthreads;
     int flags;
     int nheaders;
+    int64_t missing_int_val;
+    double missing_float_val;
 } FastCsvInput;
 
 typedef struct fast_csv_result_s {
     int (*add_header)(struct fast_csv_result_s *, const uchar *, size_t);
     void *(*add_column)(struct fast_csv_result_s *, int, size_t, size_t);
 } FastCsvResult;
+
+int init_csv(FastCsvInput *, const uchar *, size_t, int, int);
 
 int parse_csv(const FastCsvInput *, FastCsvResult *);
 

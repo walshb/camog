@@ -68,7 +68,7 @@ py_add_header(FastCsvResult *res, const uchar *str, size_t len)
 
 static PyObject *
 py_parse_csv(const uchar *csv_buf, size_t buf_len, PyObject *sep_obj, int nthreads,
-             int flags, int nheaders)
+             int flags, int nheaders, int64_t missing_int_val, double missing_float_val)
 {
     uchar sep;
     FastCsvInput input;
@@ -81,12 +81,11 @@ py_parse_csv(const uchar *csv_buf, size_t buf_len, PyObject *sep_obj, int nthrea
         sep = PyString_AsString(sep_obj)[0];
     }
 
-    input.csv_buf = csv_buf;
-    input.buf_len = buf_len;
+    init_csv(&input, csv_buf, buf_len, nheaders, nthreads);
     input.sep = sep;
-    input.nthreads = nthreads;
     input.flags = flags;
-    input.nheaders = nheaders;
+    input.missing_int_val = missing_int_val;
+    input.missing_float_val = missing_float_val;
 
     result.r.add_header = &py_add_header;
     result.r.add_column = &py_add_column;
@@ -116,15 +115,19 @@ parse_csv_func(PyObject *self, PyObject *args)
     int nthreads = 4;
     int flags = 0;
     int nheaders = 0;
+    int missing_int_val = 0;
+    double missing_float_val = 0.0;
 
-    if (!PyArg_ParseTuple(args, "O|Oiii", &str_obj, &sep_obj, &nthreads, &flags, &nheaders)) {
+    if (!PyArg_ParseTuple(args, "O|Oiiiid", &str_obj, &sep_obj, &nthreads,
+                          &flags, &nheaders, &missing_int_val, &missing_float_val)) {
         return NULL;
     }
 
     csv_buf = (uchar *)PyString_AsString(str_obj);
     buf_len = PyString_Size(str_obj);
 
-    return py_parse_csv(csv_buf, buf_len, sep_obj, nthreads, flags, nheaders);
+    return py_parse_csv(csv_buf, buf_len, sep_obj, nthreads, flags, nheaders,
+                        missing_int_val, missing_float_val);
 }
 
 static PyObject *
@@ -138,10 +141,13 @@ parse_file_func(PyObject *self, PyObject *args)
     int nthreads = 4;
     int flags = 0;
     int nheaders = 0;
+    int missing_int_val = 0;
+    double missing_float_val = 0.0;
     int fd;
     struct stat stat_buf;
 
-    if (!PyArg_ParseTuple(args, "O|Oiii", &fname_obj, &sep_obj, &nthreads, &flags, &nheaders)) {
+    if (!PyArg_ParseTuple(args, "O|Oiiiid", &fname_obj, &sep_obj, &nthreads,
+                          &flags, &nheaders, &missing_int_val, &missing_float_val)) {
         return NULL;
     }
 
@@ -157,7 +163,8 @@ parse_file_func(PyObject *self, PyObject *args)
         return PyErr_Format(PyExc_IOError, "%s: mmap failed", fname);
     }
 
-    res = py_parse_csv(filedata, stat_buf.st_size, sep_obj, nthreads, flags, nheaders);
+    res = py_parse_csv(filedata, stat_buf.st_size, sep_obj, nthreads, flags, nheaders,
+                       missing_int_val, missing_float_val);
 
     munmap(filedata, stat_buf.st_size);
 
