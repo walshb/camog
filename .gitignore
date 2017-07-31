@@ -5,7 +5,6 @@
 *.so
 /*.egg-info/
 /.cache
-/build/
+build/
 /gensrc/
 /afl/csvread
-/ctests/test_numbers

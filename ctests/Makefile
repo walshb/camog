@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Copyright 2017 Ben Walsh
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,22 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
+CC := gcc
+CFLAGS := -DDEBUG_SERIAL -O2 -Werror -I../src -I../gensrc
 
-minexpo = 0
-maxexpo = 310   # exclusive
+.PHONY:	all clean parser
 
-sys.stdout.write('long double powers[] = {')
-for expo in xrange(minexpo, maxexpo):
-    if expo >= maxexpo - 1:
-        sys.stdout.write('1.0 / 0.0')
-    else:
-        sys.stdout.write('1.0e%sL' % expo)
-    if expo < maxexpo - 1:
-        sys.stdout.write(',')
-    if (expo - minexpo) % 8 == 7:
-        sys.stdout.write('\n')
-    else:
-        sys.stdout.write(' ')
+all: build/test_floats
 
-sys.stdout.write('};\n')
+build/test_floats: build/test_floats.o build/fastcsv.o
+	$(CC) $^ -lpthread -o $@
+
+build/fastcsv.o: ../src/fastcsv.c parser build
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+build/%.o: %.c build
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+parser:
+	cd ..; make parser
+
+build:
+	mkdir build
+
+clean:
+	rm -rf build

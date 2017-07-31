@@ -280,16 +280,17 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
                     if (expo > 309) {
                         expo = 309;
                     }
-                    val = (double)value * powers[expo + 324] * sign;
+                    val = (long double)value * powers[expo] * sign;
                 } else {
                     /* more accurate to divide by precise value */
-                    if (expo < -308) {
-                        if (expo < -324) {
-                            expo = -324;
+                    expo = -expo;
+                    if (expo > 308) {
+                        if (expo > 340) {
+                            expo = 340;
                         }
-                        val = (double)value / 1.0e308 / powers[324 - expo - 308] * sign;
+                        val = (long double)value / 1.0e308 / powers[expo - 308] * sign;
                     } else {
-                        val = (double)value / powers[324 - expo] * sign;
+                        val = (long double)value / powers[expo] * sign;
                     }
                 }
                 *((double *)dest) = val;
