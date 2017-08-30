@@ -436,14 +436,12 @@ allocate_arrays(ThreadCommon *common)
 
         if (col_type == COL_TYPE_INT) {
             xs = (uchar *)common->result->add_column(common->result, col_type, nrows, 0);
-            memset(xs, 1, nrows * sizeof(int64_t));
             for (i = 0; i < nchunks; i++) {
                 CHUNK_COLUMN(&chunks[i], col_idx).arr_ptr = xs;
                 xs += chunks[i].nrows * sizeof(int64_t);
             }
         } else if (col_type == COL_TYPE_DOUBLE) {
             xs = (uchar *)common->result->add_column(common->result, col_type, nrows, 0);
-            memset(xs, 1, nrows * sizeof(double));
             for (i = 0; i < nchunks; i++) {
                 CHUNK_COLUMN(&chunks[i], col_idx).arr_ptr = xs;
                 xs += chunks[i].nrows * sizeof(double);
@@ -462,7 +460,6 @@ allocate_arrays(ThreadCommon *common)
             }
 #else
             xs = (uchar *)common->result->add_column(common->result, col_type, nrows, width);
-            memset(xs, 1, nrows * width);
             for (i = 0; i < nchunks; i++) {
                 CHUNK_COLUMN(&chunks[i], col_idx).arr_ptr = xs;
                 xs += chunks[i].nrows * width;
