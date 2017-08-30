@@ -149,16 +149,13 @@ typedef struct {
         link->ptr += sizeof(T);                                         \
     } while (0)
 
-#define LINKED_STEP(L, P, T, N)                         \
-    do {                                                \
-        int n = (N) * sizeof(T);                        \
-        while ((P) >= (L)->data + LINKED_MAX - n) {     \
-            LinkedLink *new_link = (L)->next;           \
-            n -= (L)->data + LINKED_MAX - (P);          \
-            P = new_link->data;                         \
-            L = new_link;                               \
-        }                                               \
-        P += n;                                         \
+#define LINKED_NEXT(L, P, T)                    \
+    do {                                        \
+        P += sizeof(T);                         \
+        if ((P) >= (L)->data + LINKED_MAX) {    \
+            L = (L)->next;                      \
+            P = (L)->data;                      \
+        }                                       \
     } while (0)
 
 #define COLUMN_INIT(C, R, T)                    \
@@ -724,7 +721,7 @@ fixup_parse(ThreadCommon *common)
 
         while (rowp < chunk->soft_end) {
             rowp += *((width_t *)offset_ptr);
-            LINKED_STEP(offset_link, offset_ptr, width_t, 1);
+            LINKED_NEXT(offset_link, offset_ptr, width_t);
             nrows++;
         }
 
