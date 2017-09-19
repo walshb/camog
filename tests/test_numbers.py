@@ -205,6 +205,15 @@ def test_nan():
     assert np.all(np.isnan(res[0]))
 
 
+def test_exact():
+    csv_str = '1.0000000000000007'
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0)[1]
+
+    assert res[0].dtype == float
+    assert res[0][0] == 1.0000000000000007
+
+
 def _do_parse(i):
     v = i
     v, n = _divmod(v, _maxlen)
