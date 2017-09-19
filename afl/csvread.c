@@ -47,7 +47,7 @@ afl_add_column(FastCsvResult *res, int col_type, size_t nrows, size_t width)
     }
 
     switch (col_type) {
-    case COL_TYPE_INT:
+    case COL_TYPE_INT64:
         width = sizeof(uint64_t);
         break;
     case COL_TYPE_DOUBLE:
@@ -87,6 +87,7 @@ afl_parse_csv(const uchar *csv_buf, size_t buf_len, uchar sep, int nthreads,
 
     result->r.add_header = &afl_add_header;
     result->r.add_column = &afl_add_column;
+    result->r.fix_column_type = NULL;
     result->buf = malloc(BUF_SIZE);
     result->buf_last = result->buf;
     result->nrows = -1;

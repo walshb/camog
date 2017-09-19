@@ -1,0 +1,9 @@
+Package: camog
+Type: Package
+Title: A fast csv reader
+Version: 0.1.0
+Date: 2017-08-01
+Author: Ben Walsh
+Maintainer: Ben Walsh <b@wumpster.com>
+Description: Reads csv files using multiple threads.
+License: Apache License (== 2.0) | file LICENSE

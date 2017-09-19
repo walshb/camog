@@ -274,7 +274,7 @@ def main():
     minus = SingleChar("c == '-'", p("sign = -1;"))
     plus_or_minus = Or(plus, Or(minus, Nothing()))
 
-    change_to_double = "if (col_type == COL_TYPE_INT) { columns[col_idx].type = col_type = COL_TYPE_DOUBLE; }"
+    change_to_double = "if (col_type == COL_TYPE_INT64) { columns[col_idx].type = col_type = COL_TYPE_DOUBLE; }"
 
     dot = SingleChar("c == '.'", t(change_to_double))
     digit = SingleChar("(digit = c ^ '0') <= 9", p("value = value * 10 + digit;"))

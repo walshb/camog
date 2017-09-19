@@ -256,7 +256,7 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
 
         c = *p;
 
-        if (col_type == COL_TYPE_INT || col_type == COL_TYPE_DOUBLE) {
+        if (col_type != COL_TYPE_STRING) {
             if (c == '"') {
                 ++nquotes;
                 ++cellp;
@@ -272,13 +272,20 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
 
         goodend:
 
-            dest = column->arr_ptr + row_idx * sizeof(int64_t);
-            if (col_type == COL_TYPE_INT) {
+            if (col_type == COL_TYPE_INT32) {
+                dest = column->arr_ptr + row_idx * sizeof(int32_t);
+                if (p == cellp) {
+                    value = common->missing_int_val;
+                }
+                *((int32_t *)dest) = value * sign;
+            } else if (col_type == COL_TYPE_INT64) {
+                dest = column->arr_ptr + row_idx * sizeof(int64_t);
                 if (p == cellp) {
                     value = common->missing_int_val;
                 }
                 *((int64_t *)dest) = value * sign;
             } else {
+                dest = column->arr_ptr + row_idx * sizeof(double);
                 if (p == cellp) {
                     val = common->missing_float_val;
                 } else if (expo == INT_MIN) {
@@ -360,7 +367,10 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
                 Column *column = &CHUNK_COLUMN(chunk, col_idx);
                 int col_type = column->type;
                 uchar *dest;
-                if (col_type == COL_TYPE_INT) {
+                if (col_type == COL_TYPE_INT32) {
+                    dest = column->arr_ptr + row_idx * sizeof(int32_t);
+                    *((int32_t *)dest) = common->missing_int_val;
+                } else if (col_type == COL_TYPE_INT64) {
                     dest = column->arr_ptr + row_idx * sizeof(int64_t);
                     *((int64_t *)dest) = common->missing_int_val;
                 } else if (col_type == COL_TYPE_DOUBLE) {
@@ -407,7 +417,7 @@ allocate_arrays(ThreadCommon *common)
         int col_type;
         width_t width;
 
-        col_type = COL_TYPE_INT;
+        col_type = COL_TYPE_INT32;
         width = 1;  /* numpy has minimum string len of 1 */
         for (i = 0; i < nchunks; i++) {
             Column *column;
@@ -422,6 +432,11 @@ allocate_arrays(ThreadCommon *common)
                 width = column->width;
             }
         }
+
+        if (common->result->fix_column_type != NULL) {
+            col_type = common->result->fix_column_type(common->result, col_idx, col_type);
+        }
+
         /* make the column the same type in each chunk */
         for (i = 0; i < nchunks; i++) {
             Column *column;
@@ -434,7 +449,13 @@ allocate_arrays(ThreadCommon *common)
             column->width = width;
         }
 
-        if (col_type == COL_TYPE_INT) {
+        if (col_type == COL_TYPE_INT32) {
+            xs = (uchar *)common->result->add_column(common->result, col_type, nrows, 0);
+            for (i = 0; i < nchunks; i++) {
+                CHUNK_COLUMN(&chunks[i], col_idx).arr_ptr = xs;
+                xs += chunks[i].nrows * sizeof(int32_t);
+            }
+        } if (col_type == COL_TYPE_INT64) {
             xs = (uchar *)common->result->add_column(common->result, col_type, nrows, 0);
             for (i = 0; i < nchunks; i++) {
                 CHUNK_COLUMN(&chunks[i], col_idx).arr_ptr = xs;
@@ -531,7 +552,7 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
         if (col_idx >= ncols) {
             ncols++;
             columns = (Column *)array_buf_enlarge(&chunk->columns, ncols * sizeof(Column));
-            COLUMN_INIT(&CHUNK_COLUMN(chunk, col_idx), row_idx, COL_TYPE_INT);
+            COLUMN_INIT(&CHUNK_COLUMN(chunk, col_idx), row_idx, COL_TYPE_INT64);
         }
         if (p >= buf_end) {
             goto athardend;

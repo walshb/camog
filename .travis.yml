@@ -1,15 +1,28 @@
-language: python
 matrix:
-    include:
-        - os: linux
-          python: 2.7
-        # Travis doesn't support Python on OSX, so use generic
-        - os: osx
-          language: generic
-before_install:
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update; brew install python2; virtualenv venv -p python2; . venv/bin/activate; fi
-  - uname -a
-install:
-  - pip install numpy pytest
-script:
-  - make test
+  include:
+    - os: linux
+      language: python
+      python: 2.7
+      install:
+        - pip install numpy pytest
+      script:
+        - make test
+    - os: linux
+      language: r
+      before_install:
+        - cd lang/r
+        - make setup
+        - cd build/camog
+    - os: osx
+      # Travis doesn't support Python on OSX, so use generic
+      language: generic
+      before_install:
+        - uname -a
+        - brew update
+        - brew install python2 || true
+        - virtualenv venv -p python2
+        - . venv/bin/activate
+      install:
+        - pip install numpy pytest
+      script:
+        - make test

@@ -17,9 +17,10 @@
 #ifndef _FASTCSV_H
 #define _FASTCSV_H
 
-#define COL_TYPE_INT 1
-#define COL_TYPE_DOUBLE 2
-#define COL_TYPE_STRING 3
+#define COL_TYPE_INT32 1
+#define COL_TYPE_INT64 2
+#define COL_TYPE_DOUBLE 3
+#define COL_TYPE_STRING 4
 
 #define FLAG_EXCEL_QUOTES 1
 
@@ -41,6 +42,7 @@ typedef struct {
 typedef struct fast_csv_result_s {
     int (*add_header)(struct fast_csv_result_s *, const uchar *, size_t);
     void *(*add_column)(struct fast_csv_result_s *, int, size_t, size_t);
+    int (*fix_column_type)(struct fast_csv_result_s *, int, int);
 } FastCsvResult;
 
 int init_csv(FastCsvInput *, const uchar *, size_t, int, int);

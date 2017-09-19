@@ -38,7 +38,7 @@ test_add_column(FastCsvResult *res, int col_type, size_t nrows, size_t width)
     void *arr;
     TestFastCsvResult *testres = (TestFastCsvResult *)res;
 
-    if (col_type != COL_TYPE_DOUBLE && col_type != COL_TYPE_INT) {
+    if (col_type != COL_TYPE_DOUBLE && col_type != COL_TYPE_INT64) {
         fprintf(stderr, "Unexpected type %d\n", col_type);
         abort();
     }
@@ -72,6 +72,7 @@ test_parse_csv(const uchar *csv_buf, size_t buf_len, uchar sep, int nthreads,
 
     result->r.add_header = &test_add_header;
     result->r.add_column = &test_add_column;
+    result->r.fix_column_type = NULL;
 
     parse_csv(&input, (FastCsvResult *)result);
 

@@ -40,7 +40,7 @@ py_add_column(FastCsvResult *res, int col_type, size_t nrows, size_t width)
     dims[0] = nrows;
 
     switch (col_type) {
-    case COL_TYPE_INT:
+    case COL_TYPE_INT64:
         arr = PyArray_SimpleNew(1, dims, NPY_INT64);
         break;
     case COL_TYPE_DOUBLE:
@@ -89,6 +89,7 @@ py_parse_csv(const uchar *csv_buf, size_t buf_len, PyObject *sep_obj, int nthrea
 
     result.r.add_header = &py_add_header;
     result.r.add_column = &py_add_column;
+    result.r.fix_column_type = NULL;
     if (nheaders == 0) {
         Py_INCREF(Py_None);
         result.headers = Py_None;
