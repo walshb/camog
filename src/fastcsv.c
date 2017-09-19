@@ -270,6 +270,10 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
 
             }
 
+            if (c == '\r') {
+                NEXTCHAR2_INQUOTES(goodend);
+            }
+
         goodend:
 
             if (col_type == COL_TYPE_INT32) {
@@ -327,6 +331,9 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
                         goto atstringend;
                     }
                     c = *p;
+                    if (c == '\r') {
+                        continue;
+                    }
                     if (c == '"') {
                         ++p;
                         if (p >= buf_end) {
@@ -345,7 +352,9 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
                 if (c == sep || c == '\n') {
                     goto atstringend;
                 }
-                *q++ = c;
+                if (c != '\r') {
+                    *q++ = c;
+                }
                 ++p;
                 if (p >= buf_end) {
                     goto atstringend;
@@ -584,10 +593,16 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
 
         }
 
-        if (nquotes != 1 && (c == sep || c == '\n')) {
-            goto comma;
-        }
+        if (nquotes != 1) {  /* c not in quotes */
+            if (c == '\r') {
+                ++cellp;  /* make width smaller */
+                NEXTCHAR_NOQUOTES(goodend);
+            }
 
+            if (c == sep || c == '\n') {
+                goto comma;
+            }
+        }
     bad:
         columns[col_idx].type = COL_TYPE_STRING;
         goto atstringbegin;
@@ -605,6 +620,9 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
     atstringbegin:
         if (nquotes == 1) {
             while (1) {
+                if (c == '\r') {
+                    ++cellp;  /* make width smaller */
+                }
                 ++p;
                 if (p >= buf_end) {
                     goto comma;
@@ -629,6 +647,9 @@ parse_stage1(ThreadCommon *common, Chunk *chunk)
         while (1) {
             if (c == sep || c == '\n') {
                 break;
+            }
+            if (c == '\r') {
+                ++cellp;  /* make width smaller */
             }
             ++p;
             if (p >= buf_end) {
@@ -846,6 +867,9 @@ parse_headers(ThreadCommon *common, const uchar *csv_buf, const uchar *buf_end)
                     goto atstringend;
                 }
                 c = *p;
+                if (c == '\r') {
+                    continue;
+                }
                 if (c == '"') {
                     ++p;
                     if (p >= buf_end) {
@@ -867,12 +891,14 @@ parse_headers(ThreadCommon *common, const uchar *csv_buf, const uchar *buf_end)
         }
         /* c is non-quoted char here */
         while (c != sep && c != '\n') {
-            *q++ = c;
-            if (q >= cellbuf + cell_space) {
-                cell_space *= 2;
-                new_cellbuf = realloc(cellbuf, cell_space);
-                q = new_cellbuf + (q - cellbuf);
-                cellbuf = new_cellbuf;
+            if (c != '\r') {
+                *q++ = c;
+                if (q >= cellbuf + cell_space) {
+                    cell_space *= 2;
+                    new_cellbuf = realloc(cellbuf, cell_space);
+                    q = new_cellbuf + (q - cellbuf);
+                    cellbuf = new_cellbuf;
+                }
             }
             ++p;
             if (p >= buf_end) {

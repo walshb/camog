@@ -78,3 +78,13 @@ def test_nheaders_zero():
     assert np.all(data[0] == np.array([123, 123]))
     assert np.all(data[1] == np.array([456, 456]))
     assert np.all(data[2] == np.array([789, 789]))
+
+
+def test_carriage_returns():
+    headers, data = _do_parse_both('123,456,789\r\n123,456,789\r\n123,456,789\r\n', nheaders=1)
+
+    assert headers == ['123', '456', '789']
+
+    assert np.all(data[0] == np.array([123, 123]))
+    assert np.all(data[1] == np.array([456, 456]))
+    assert np.all(data[2] == np.array([789, 789]))
