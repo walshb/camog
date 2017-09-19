@@ -16,6 +16,7 @@ import numpy as np
 
 import camog._cfastcsv as cfastcsv
 
+import _testhelper as th
 
 def _do_parse_csv(csv_str, sep=',', nthreads=4):
     return cfastcsv.parse_csv(csv_str, sep, nthreads)[1]
@@ -34,7 +35,7 @@ def test_empty_first_line():
     assert len(res) == 1
 
     assert res[0].dtype == 'S1'
-    assert np.all(res[0] == np.array(['', 'a']))
+    assert np.all(res[0] == th.array(['', 'a']))
 
 
 def test_empty_quotes():
@@ -42,7 +43,7 @@ def test_empty_quotes():
 
     assert len(res) == 1
     assert res[0].dtype == 'S1'
-    assert np.all(res[0] == np.array(['']))
+    assert np.all(res[0] == th.array(['']))
 
 
 def test_empty_first_line2():
@@ -51,11 +52,11 @@ def test_empty_first_line2():
     assert len(res) == 3
 
     assert res[0].dtype == int
-    assert np.all(res[0] == np.array([0, 0]))
+    assert np.all(res[0] == th.array([0, 0]))
     assert res[1].dtype == 'S1'
-    assert np.all(res[1] == np.array(['', 'a']))
+    assert np.all(res[1] == th.array(['', 'a']))
     assert res[2].dtype == 'S1'
-    assert np.all(res[2] == np.array(['', 'a']))
+    assert np.all(res[2] == th.array(['', 'a']))
 
 
 def test_empty_line():
@@ -64,28 +65,24 @@ def test_empty_line():
     assert len(res) == 2
 
     assert res[0].dtype == int
-    assert np.all(res[0] == np.array([0, 0, 0]))
+    assert np.all(res[0] == th.array([0, 0, 0]))
     assert res[1].dtype == int
-    assert np.all(res[1] == np.array([0, 0, 1]))
-
-
-def _set_top_bit(s):
-    return ''.join(chr(ord(c) | 128) for c in s)
+    assert np.all(res[1] == th.array([0, 0, 1]))
 
 
 def test_signed_char():
-    s1 = _set_top_bit('1234567')
-    s2 = _set_top_bit('89012345')
-    csv_str = s1 + ',' + s2
+    s1 = th.set_top_bit('1234567')
+    s2 = th.set_top_bit('89012345')
+    csv_str = s1 + th.COMMA + s2
 
     res = _do_parse_csv(csv_str)
 
     assert len(res) == 2
 
     assert res[0].dtype == 'S7'
-    assert np.all(res[0] == np.array([s1]))
+    assert np.all(res[0] == th.array([s1]))
     assert res[1].dtype == 'S8'
-    assert np.all(res[1] == np.array([s2]))
+    assert np.all(res[1] == th.array([s2]))
 
 
 def test_huge_expo():

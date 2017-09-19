@@ -12,13 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import os
 import tempfile
 import shutil
+import numpy as np
+
+if sys.version_info < (3,):
+    import cStringIO
+    string_io = cStringIO.StringIO
+
+    def string(s='', encoding=None):  # pylint: disable=unused-argument
+        return bytes(s)
+else:
+    import io
+    string_io = io.StringIO
+
+    def string(s='', encoding='utf8'):
+        return bytes(s, encoding)
+
+SPACE = b' '
+COMMA = b','
 
 class TempCsvFile(object):
     def __init__(self, data):
-        self._data = data
+        self._data = string(data, 'utf8')
 
     def __enter__(self):
         self._dirname = tempfile.mkdtemp()
@@ -31,3 +49,14 @@ class TempCsvFile(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         shutil.rmtree(self._dirname)
+
+
+def array(lst):
+    res = np.array(lst)
+    if res.dtype.kind == 'U':
+        return res.astype('S')
+    return res
+
+
+def set_top_bit(s):
+    return string(''.join(chr(ord(c) | 128) for c in s), 'latin1')

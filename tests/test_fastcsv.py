@@ -16,6 +16,8 @@ import numpy as np
 
 import camog._cfastcsv as cfastcsv
 
+import _testhelper as th
+
 def _do_parse_csv(csv_str, sep=',', nthreads=4):
     return cfastcsv.parse_csv(csv_str, sep, nthreads)[1]
 
@@ -24,9 +26,9 @@ def test_fastcsv1():
     res = _do_parse_csv("123,456.234,327.0", nthreads=1)
 
     assert len(res) == 3
-    assert np.allclose(res[0], np.array([123.0]))
-    assert np.allclose(res[1], np.array([456.234]))
-    assert np.allclose(res[2], np.array([327.0]))
+    assert np.allclose(res[0], th.array([123.0]))
+    assert np.allclose(res[1], th.array([456.234]))
+    assert np.allclose(res[2], th.array([327.0]))
 
 
 def test_fastcsv2():
@@ -37,9 +39,9 @@ def test_fastcsv2():
     res = _do_parse_csv('\n'.join(lines))
 
     assert len(res) == 3
-    assert np.allclose(res[0], np.array([123.0, 123.0, 456.0]))
-    assert np.allclose(res[1], np.array([456.234, 456.0, 789.0]))
-    assert np.allclose(res[2], np.array([327.0, 789.0, 123.0]))
+    assert np.allclose(res[0], th.array([123.0, 123.0, 456.0]))
+    assert np.allclose(res[1], th.array([456.234, 456.0, 789.0]))
+    assert np.allclose(res[2], th.array([327.0, 789.0, 123.0]))
 
 
 def test_fastcsv3():
@@ -51,10 +53,10 @@ def test_fastcsv3():
 
     assert len(res) == 3
     assert res[0].dtype == '|S5' or res[0].dtype == object
-    assert np.all(res[0] == np.array(['123', 'abc', '456.0']))
-    assert np.allclose(res[1], np.array([456.234, 456.0, 789.0]))
+    assert np.all(res[0] == th.array(['123', 'abc', '456.0']))
+    assert np.allclose(res[1], th.array([456.234, 456.0, 789.0]))
     assert res[2].dtype == '|S4' or res[2].dtype == object
-    assert np.all(res[2] == np.array(['blah', 'foo', 'bar']))
+    assert np.all(res[2] == th.array(['blah', 'foo', 'bar']))
 
 
 def test_fastcsv4():
@@ -67,10 +69,10 @@ def test_fastcsv4():
 
     assert len(res) == 3
     assert res[0].dtype == '|S5' or res[0].dtype == object
-    assert np.all(res[0] == np.array(['123', 'abc', '456.0']))
-    assert np.allclose(res[1], np.array([456.234, 456.0, 789.0]))
+    assert np.all(res[0] == th.array(['123', 'abc', '456.0']))
+    assert np.allclose(res[1], th.array([456.234, 456.0, 789.0]))
     assert res[2].dtype == '|S4' or res[2].dtype == object
-    assert np.all(res[2] == np.array(['blah', 'foo', 'bar']))
+    assert np.all(res[2] == th.array(['blah', 'foo', 'bar']))
 
 
 def test_fastcsv5():
@@ -84,10 +86,10 @@ def test_fastcsv5():
 
     assert len(res) == 3
     assert res[0].dtype == '|S5' or res[0].dtype == object
-    assert np.all(res[0] == np.array(['123', 'abc', '456.0'] * n))
-    assert np.allclose(res[1], np.array([456.234, 456.0, 789.0] * n))
+    assert np.all(res[0] == th.array(['123', 'abc', '456.0'] * n))
+    assert np.allclose(res[1], th.array([456.234, 456.0, 789.0] * n))
     assert res[2].dtype == '|S4' or res[2].dtype == object
-    assert np.all(res[2] == np.array(['blah', 'foo', 'bar'] * n))
+    assert np.all(res[2] == th.array(['blah', 'foo', 'bar'] * n))
 
 
 def test_quoting1():
@@ -99,10 +101,10 @@ def test_quoting1():
 
     assert len(res) == 3
     assert res[0].dtype == '|S6' or res[0].dtype == object
-    assert np.all(res[0] == np.array(['123', 'abcdef', '456.0']))
-    assert np.allclose(res[1], np.array([456.234, 456.0, 789.0]))
+    assert np.all(res[0] == th.array(['123', 'abcdef', '456.0']))
+    assert np.allclose(res[1], th.array([456.234, 456.0, 789.0]))
     assert res[2].dtype == '|S4' or res[2].dtype == object
-    assert np.all(res[2] == np.array(['blah', 'foo', 'bar']))
+    assert np.all(res[2] == th.array(['blah', 'foo', 'bar']))
 
 
 def test_quoting_stringappend():
@@ -114,10 +116,10 @@ def test_quoting_stringappend():
 
     assert len(res) == 3
     assert res[0].dtype == '|S8' or res[0].dtype == object
-    assert np.all(res[0] == np.array(['123', 'ab"cd"ef', '456.0']))
-    assert np.allclose(res[1], np.array([456.234, 456.0, 789.0]))
+    assert np.all(res[0] == th.array(['123', 'ab"cd"ef', '456.0']))
+    assert np.allclose(res[1], th.array([456.234, 456.0, 789.0]))
     assert res[2].dtype == '|S4' or res[2].dtype == object
-    assert np.all(res[2] == np.array(['blah', 'foo', 'bar']))
+    assert np.all(res[2] == th.array(['blah', 'foo', 'bar']))
 
 
 def test_quoting_newline():
@@ -129,10 +131,10 @@ def test_quoting_newline():
 
     assert len(res) == 3
     assert res[0].dtype == '|S6' or res[0].dtype == object
-    assert np.all(res[0] == np.array(['123', 'abcdef', '456.0']))
-    assert np.allclose(res[1], np.array([456.234, 456.0, 789.0]))
+    assert np.all(res[0] == th.array(['123', 'abcdef', '456.0']))
+    assert np.allclose(res[1], th.array([456.234, 456.0, 789.0]))
     assert res[2].dtype == '|S23' or res[2].dtype == object
-    assert np.all(res[2] == np.array(['blah', 'longtextwithnewline\nabc', 'bar']))
+    assert np.all(res[2] == th.array(['blah', 'longtextwithnewline\nabc', 'bar']))
 
 
 def test_ragged_right_doubles():
@@ -146,9 +148,9 @@ def test_ragged_right_doubles():
     res = _do_parse_csv('\n'.join(lines), ',', 2)
 
     assert len(res) == 3
-    assert np.all(res[0] == np.array([1.0, 333.0, 55555.0, 888.0, 22.0, 4444.0]))
-    assert np.all(res[1] == np.array([22.0, 4444.0, 6.0, 9999.0, 333.0, 55555.0]))
-    assert np.all(res[2] == np.array([0.0, 0.0, 77.0, 0.0, 1.0, 0.0]))
+    assert np.all(res[0] == th.array([1.0, 333.0, 55555.0, 888.0, 22.0, 4444.0]))
+    assert np.all(res[1] == th.array([22.0, 4444.0, 6.0, 9999.0, 333.0, 55555.0]))
+    assert np.all(res[2] == th.array([0.0, 0.0, 77.0, 0.0, 1.0, 0.0]))
 
 
 def test_ragged_right_doubles_late():
@@ -162,9 +164,9 @@ def test_ragged_right_doubles_late():
     res = _do_parse_csv('\n'.join(lines), ',', 2)
 
     assert len(res) == 3
-    assert np.all(res[0] == np.array([1.0, 333.0, 55555.0, 888.0, 22.0, 4444.0]))
-    assert np.all(res[1] == np.array([22.0, 4444.0, 6.0, 9999.0, 333.0, 55555.0]))
-    assert np.all(res[2] == np.array([0.0, 0.0, 00, 0.0, 0.0, 1.0]))
+    assert np.all(res[0] == th.array([1.0, 333.0, 55555.0, 888.0, 22.0, 4444.0]))
+    assert np.all(res[1] == th.array([22.0, 4444.0, 6.0, 9999.0, 333.0, 55555.0]))
+    assert np.all(res[2] == th.array([0.0, 0.0, 00, 0.0, 0.0, 1.0]))
 
 
 def test_ragged_right_strings():
@@ -178,9 +180,9 @@ def test_ragged_right_strings():
     res = _do_parse_csv('\n'.join(lines), ',', 2)
 
     assert len(res) == 3
-    assert np.all(res[0] == np.array(['a', 'ccc', 'eeeee', 'hhh', 'bb', 'dddd']))
-    assert np.all(res[1] == np.array(['bb', 'dddd', 'f', 'iiii', 'ccc', 'eeeee']))
-    assert np.all(res[2] == np.array(['', '', 'gg', '', 'a', '']))
+    assert np.all(res[0] == th.array(['a', 'ccc', 'eeeee', 'hhh', 'bb', 'dddd']))
+    assert np.all(res[1] == th.array(['bb', 'dddd', 'f', 'iiii', 'ccc', 'eeeee']))
+    assert np.all(res[2] == th.array(['', '', 'gg', '', 'a', '']))
 
 
 if __name__ == '__main__':

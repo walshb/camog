@@ -13,12 +13,13 @@
 # limitations under the License.
 
 import csv
-import cStringIO
 import logging
 
 import numpy as np
 
 import camog._cfastcsv as cfastcsv
+
+import _testhelper as th
 
 _logger = logging.getLogger(__name__)
 
@@ -31,25 +32,25 @@ def _divmod(n, m):
 
 
 def _parse_py_csv(csv_str):
-    fp = cStringIO.StringIO(csv_str)
+    fp = th.string_io(csv_str)
     reader = csv.reader(fp, dialect='excel')
     rows = list(reader)
 
     ncols = max([len(row) for row in rows])
 
-    cols = [[] for i in xrange(ncols)]
+    cols = [[] for i in range(ncols)]
     for row in rows:
-        for j in xrange(ncols):
+        for j in range(ncols):
             if j < len(row):
-                cols[j].append(row[j])
+                cols[j].append(th.string(row[j]))
             else:
-                cols[j].append('')
+                cols[j].append(th.string())
 
     return cols
 
 
 def _to_ints(strs):
-    return [0 if s == ' ' * len(s) else int(s) for s in strs]
+    return [0 if s == th.SPACE * len(s) else int(s) for s in strs]
 
 
 def _cols_equal(cols1, cols2):
@@ -72,7 +73,7 @@ def _do_parse(i):
     v, n = _divmod(v, _maxlen)
     n += 1
     s = []
-    for j in xrange(n):
+    for j in range(n):
         v, k = _divmod(v, len(_chars))
         s.append(_chars[k])
 
@@ -91,5 +92,5 @@ def _do_parse(i):
 def test_combinations():
     n = _maxlen * len(_chars) ** _maxlen
     _logger.info('n = %s', n)
-    for i in xrange(n):
+    for i in range(n):
         _do_parse(i)

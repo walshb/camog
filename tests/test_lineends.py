@@ -16,6 +16,8 @@ import numpy as np
 
 import camog._cfastcsv as cfastcsv
 
+import _testhelper as th
+
 def _do_parse_both(csv_str, nheaders=0, excel_quotes=False):
     return cfastcsv.parse_csv(csv_str, ',', 1, 1 if excel_quotes else 0, nheaders)
 
@@ -26,9 +28,9 @@ def test_number_cr_quotes():
 
     headers, data = _do_parse_both(csv_str, nheaders=0, excel_quotes=True)
 
-    assert np.all(data[0] == np.array(['123', '123']))
-    assert np.all(data[1] == np.array(['456', '456']))
-    assert np.all(data[2] == np.array(['789', '789']))
+    assert np.all(data[0] == th.array(['123', '123']))
+    assert np.all(data[1] == th.array(['456', '456']))
+    assert np.all(data[2] == th.array(['789', '789']))
 
 
 def test_number_cr_quotes():
@@ -41,9 +43,9 @@ def test_number_cr_quotes():
     assert data[1].dtype == '|S3'
     assert data[2].dtype == '|S3'
 
-    assert np.all(data[0] == np.array(['123', '123']))
-    assert np.all(data[1] == np.array(['456', '456']))
-    assert np.all(data[2] == np.array(['789', '789']))
+    assert np.all(data[0] == th.array(['123', '123']))
+    assert np.all(data[1] == th.array(['456', '456']))
+    assert np.all(data[2] == th.array(['789', '789']))
 
 
 def test_many_crs():
@@ -57,9 +59,9 @@ def test_many_crs():
     assert data[1].dtype == '|S3'
     assert data[2].dtype == '|S3'
 
-    assert np.all(data[0] == np.array(['123', '123', '123']))
-    assert np.all(data[1] == np.array(['456', '456', '456']))
-    assert np.all(data[2] == np.array(['789', '789', '789']))
+    assert np.all(data[0] == th.array(['123', '123', '123']))
+    assert np.all(data[1] == th.array(['456', '456', '456']))
+    assert np.all(data[2] == th.array(['789', '789', '789']))
 
 
 def test_many_crs_noquotes():
@@ -72,9 +74,9 @@ def test_many_crs_noquotes():
     assert data[1].dtype == '|S3'
     assert data[2].dtype == '|S3'
 
-    assert np.all(data[0] == np.array(['123', '123']))
-    assert np.all(data[1] == np.array(['456', '456']))
-    assert np.all(data[2] == np.array(['789', '789']))
+    assert np.all(data[0] == th.array(['123', '123']))
+    assert np.all(data[1] == th.array(['456', '456']))
+    assert np.all(data[2] == th.array(['789', '789']))
 
 
 def test_many_crs_headers():
@@ -90,6 +92,6 @@ def test_many_crs_headers():
     assert data[1].dtype == '|S3'
     assert data[2].dtype == '|S3'
 
-    assert np.all(data[0] == np.array(['123', '123']))
-    assert np.all(data[1] == np.array(['456', '456']))
-    assert np.all(data[2] == np.array(['789', '789']))
+    assert np.all(data[0] == th.array(['123', '123']))
+    assert np.all(data[1] == th.array(['456', '456']))
+    assert np.all(data[2] == th.array(['789', '789']))

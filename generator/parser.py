@@ -40,7 +40,7 @@ def _emit(args, s):
     if s.startswith('}'):
         _indent -= 4
 
-    print ' ' * _indent + s
+    sys.stdout.write(' ' * _indent + s + '\n')
 
     if s.endswith('{'):
         _indent += 4

@@ -58,7 +58,11 @@ py_add_column(FastCsvResult *res, int col_type, size_t nrows, size_t width)
 static int
 py_add_header(FastCsvResult *res, const uchar *str, size_t len)
 {
+#if PY_MAJOR_VERSION >= 3
+    PyObject *str_obj = PyUnicode_FromStringAndSize((char *)str, len);
+#else
     PyObject *str_obj = PyString_FromStringAndSize((char *)str, len);
+#endif
     PyFastCsvResult *pyres = (PyFastCsvResult *)res;
 
     PyList_Append(pyres->headers, str_obj);  /* increfs */
@@ -78,7 +82,11 @@ py_parse_csv(const uchar *csv_buf, size_t buf_len, PyObject *sep_obj, int nthrea
     if (sep_obj == NULL) {
         sep = ',';
     } else {
+#if PY_MAJOR_VERSION >= 3
+        sep = PyUnicode_AsUTF8(sep_obj)[0];  /* callee frees later */
+#else
         sep = PyString_AsString(sep_obj)[0];
+#endif
     }
 
     init_csv(&input, csv_buf, buf_len, nheaders, nthreads);
@@ -112,7 +120,7 @@ parse_csv_func(PyObject *self, PyObject *args)
 {
     PyObject *str_obj, *sep_obj = NULL;
     const uchar *csv_buf;
-    size_t buf_len;
+    Py_ssize_t buf_len;
     int nthreads = 4;
     int flags = 0;
     int nheaders = 0;
@@ -124,8 +132,15 @@ parse_csv_func(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    csv_buf = (uchar *)PyString_AsString(str_obj);
-    buf_len = PyString_Size(str_obj);
+#if PY_MAJOR_VERSION >= 3
+    if (PyBytes_Check(str_obj)) {
+        PyBytes_AsStringAndSize(str_obj, (char **)&csv_buf, &buf_len);
+    } else {
+        csv_buf = (uchar *)PyUnicode_AsUTF8AndSize(str_obj, &buf_len);
+    }
+#else
+    PyString_AsStringAndSize(str_obj, (char **)&csv_buf, &buf_len);
+#endif
 
     return py_parse_csv(csv_buf, buf_len, sep_obj, nthreads, flags, nheaders,
                         missing_int_val, missing_float_val);
@@ -152,7 +167,11 @@ parse_file_func(PyObject *self, PyObject *args)
         return NULL;
     }
 
+#if PY_MAJOR_VERSION >= 3
+    fname = PyUnicode_AsUTF8(fname_obj);
+#else
     fname = PyString_AsString(fname_obj);
+#endif
     if ((fd = open(fname, O_RDONLY)) < 0) {
         return PyErr_Format(PyExc_IOError, "%s: could not open", fname);
     }
@@ -182,19 +201,45 @@ static PyMethodDef mod_methods[] = {
     {NULL}  /* Sentinel */
 };
 
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "camog._cfastcsv",
+        "Fast csv reader",
+        0,
+        mod_methods,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+};
+#endif
 
 #ifndef PyMODINIT_FUNC  /* declarations for DLL import/export */
 #define PyMODINIT_FUNC void
 #endif
+
 PyMODINIT_FUNC
+#if PY_MAJOR_VERSION >= 3
+#define INIT_RETURN(V) return V;
+PyInit__cfastcsv(void)
+#else
+#define INIT_RETURN(V) return;
 init_cfastcsv(void)
+#endif
 {
     PyObject* m;
 
     import_array();
 
+#if PY_MAJOR_VERSION >= 3
+    m = PyModule_Create(&moduledef);
+#else
     m = Py_InitModule3("camog._cfastcsv", mod_methods,
-                       "Example module that creates an extension type.");
+                       "Fast csv reader");
+#endif
 
     (void)m;  /* avoid warning */
+
+    INIT_RETURN(m);
 }

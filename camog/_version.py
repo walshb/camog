@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Copyright 2017 Ben Walsh
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,22 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
-
-minexpo = 0
-maxexpo = 310   # exclusive
-
-sys.stdout.write('long double powers[] = {')
-for expo in range(minexpo, maxexpo):
-    if expo >= maxexpo - 1:
-        sys.stdout.write('1.0 / 0.0')
-    else:
-        sys.stdout.write('1.0e%sL' % expo)
-    if expo < maxexpo - 1:
-        sys.stdout.write(',')
-    if (expo - minexpo) % 8 == 7:
-        sys.stdout.write('\n')
-    else:
-        sys.stdout.write(' ')
-
-sys.stdout.write('};\n')
+__version__ = '0.1.0'

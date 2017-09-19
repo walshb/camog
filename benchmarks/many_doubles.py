@@ -41,7 +41,7 @@ def main():
     _logger.info('data size ~= %.1f MB', args.n * 3.0 * 8.0 / (1024.0 * 1024.0))
 
     mintime = 1.0e6
-    for i in xrange(args.nsamples):
+    for i in range(args.nsamples):
         t0 = datetime.datetime.now()
 
         cols = cfastcsv.parse_csv(data, ',', args.nthreads)[1]

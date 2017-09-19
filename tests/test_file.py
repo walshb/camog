@@ -21,12 +21,12 @@ import numpy as np
 
 import camog._cfastcsv as cfastcsv
 
-import _testhelper
+import _testhelper as th
 
 def test_simple_file():
     data = 'abc,def,ghi\n123,456,789\n'
 
-    with _testhelper.TempCsvFile(data) as fname:
+    with th.TempCsvFile(data) as fname:
         headers, data = cfastcsv.parse_file(fname, ',', 4, 0, 1)
 
     assert headers == ['abc', 'def', 'ghi']

@@ -58,15 +58,15 @@ def test_headers_data2():
 
 def test_many_columns():
     ncols = 1000
-    want_headers = ['col%d' % i for i in xrange(ncols)]
-    want_row = [i for i in xrange(ncols)]
+    want_headers = ['col%d' % i for i in range(ncols)]
+    want_row = [i for i in range(ncols)]
     csv_str = ','.join(want_headers) + '\n' + ','.join(str(v) for v in want_row)
 
     headers, columns = _do_parse_both(csv_str)
 
     assert headers == want_headers
     assert len(columns) == ncols
-    for i in xrange(ncols):
+    for i in range(ncols):
         assert columns[i][0] == want_row[i]
 
 

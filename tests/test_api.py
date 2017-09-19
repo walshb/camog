@@ -18,12 +18,12 @@ import numpy as np
 
 import camog
 
-import _testhelper
+import _testhelper as th
 
 def test_load():
     data = 'abc,def,ghi\n123,456,789\n'
 
-    with _testhelper.TempCsvFile(data) as fname:
+    with th.TempCsvFile(data) as fname:
         headers, data = camog.load(fname)
 
     assert headers == ['abc', 'def', 'ghi']
@@ -36,5 +36,5 @@ def test_load_invalid_nthreads():
     data = 'abc,def,ghi\n123,456,789\n'
 
     with pytest.raises(ValueError):
-        with _testhelper.TempCsvFile(data) as fname:
+        with th.TempCsvFile(data) as fname:
             camog.load(fname, nthreads=0)

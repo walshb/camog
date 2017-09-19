@@ -14,16 +14,46 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import subprocess
 import numpy as np
 
 from setuptools import setup, Extension
+
+# can't import because we don't have shared library built yet.
+exec(open('camog/_version.py').read())  # pylint: disable=exec-used
 
 ext_modules = [Extension('camog._cfastcsv',
                          ['src/fastcsv.c',
                           'src/pyfastcsv.c'],
                          include_dirs=['gensrc', np.get_include()])]
 
+try:
+    long_description \
+        = subprocess.Popen(['pandoc', '-t', 'rst', '-o', '-', 'README.md'],
+                           stdout=subprocess.PIPE).communicate()[0].decode('utf-8')
+except OSError:
+    long_description = open('README.md').read()
 
-setup(name="camog",
-      packages=["camog"],
+setup(name='camog',
+      version=__version__,
+      url='https://github.com/walshb/camog',
+      license='Apache License 2.0',
+      author='Ben Walsh',
+      author_email='b@wumpster.com',
+      description='csv file reader',
+      long_description=long_description,
+      keywords='csv reader',
+      platforms='any',
+      classifiers=[
+          'Development Status :: 4 - Beta',
+          'Intended Audience :: Developers',
+          'License :: OSI Approved :: Apache Software License',
+          'Programming Language :: Python',
+          'Programming Language :: Python :: 2',
+          'Programming Language :: Python :: 3',
+          'Topic :: Software Development :: Libraries',
+          'Topic :: Software Development :: Libraries :: Python Modules',
+      ],
+      tests_require=['pytest'],
+      packages=['camog'],
       ext_modules=ext_modules)

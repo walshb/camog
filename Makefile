@@ -14,18 +14,20 @@
 
 .PHONY:	all parser clean test benchmark
 
+PYTHON ?= python
+
 all:	parser
-	CFLAGS='' python setup.py build
+	CFLAGS='' $(PYTHON) setup.py build
 
 parser:
 	mkdir -p gensrc
-	cd gensrc; $(CURDIR)/generator/generate.sh
+	cd gensrc; PYTHON=$(PYTHON) $(CURDIR)/generator/generate.sh
 
 clean:
 	rm -rf $$(find . \( -name '*.so' -o -name '__pycache__' \) -print) gensrc build .cache
 
 test:	all
-	export PYTHONPATH=$$(echo $(CURDIR)/build/lib*); cd tests; python -m pytest -sv test_fastcsv.py test_headers.py test_edge.py test_file.py test_api.py test_chunks.py test_lineends.py test_numbers.py test_format.py
+	export PYTHONPATH=$$(echo $(CURDIR)/build/lib*); cd tests; $(PYTHON) -m pytest -sv --pdb test_fastcsv.py test_headers.py test_edge.py test_file.py test_api.py test_chunks.py test_lineends.py test_numbers.py test_format.py
 
 benchmark:	all
 	export PYTHONPATH=$$(echo $(CURDIR)/build/lib*); cd benchmarks; ./many_doubles.py -n 20000000 --nthreads=4

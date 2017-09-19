@@ -13,12 +13,13 @@
 # limitations under the License.
 
 import csv
-import cStringIO
 import logging
 
 import numpy as np
 
 import camog._cfastcsv as cfastcsv
+
+import _testhelper as th
 
 _logger = logging.getLogger(__name__)
 
@@ -34,7 +35,9 @@ def _equal(v1, v2):
     """Same type as well."""
     if isinstance(v2, float) and np.isinf(v2):
         return True
-    return isinstance(v1, type(v2)) and v1 == v2
+    if isinstance(v2, str):
+        v2 = th.string(v2)
+    return v1 == v2
 
 
 def _parse(s, excel_quotes=True):
@@ -43,11 +46,11 @@ def _parse(s, excel_quotes=True):
 
 
 def _py_csv_parse(s, excel_quotes=True):
-    reader = csv.reader(cStringIO.StringIO(s), dialect='excel')
+    reader = csv.reader(th.string_io(s), dialect='excel')
     val = list(reader)[0][0]
 
     if not excel_quotes and s and s[0] == '"':
-        return val
+        return th.string(val)
 
     if val == ' ' * len(val):
         return 0
@@ -55,7 +58,7 @@ def _py_csv_parse(s, excel_quotes=True):
     try:
         vf = float(val)
     except ValueError:
-        return val
+        return th.string(val)
 
     try:
         vi = int(val)
@@ -219,7 +222,7 @@ def _do_parse(i):
     v, n = _divmod(v, _maxlen)
     n += 1
     s = []
-    for j in xrange(n):
+    for j in range(n):
         v, k = _divmod(v, len(_chars))
         s.append(_chars[k])
 
@@ -233,5 +236,5 @@ def _do_parse(i):
 def test_combinations():
     n = _maxlen * len(_chars) ** _maxlen
     _logger.info('n = %s', n)
-    for i in xrange(n):
+    for i in range(n):
         _do_parse(i)
