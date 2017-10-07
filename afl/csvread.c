@@ -150,5 +150,8 @@ int main(int argc, char *argv[])
 
     close(fd);
 
+    free(result1.buf);
+    free(result2.buf);
+
     return 0;
 }
