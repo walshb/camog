@@ -29,8 +29,13 @@ _label_idx = 0
 
 _label_prefix = ''
 
+_outfp = None
+
 def _emit(args, s):
-    global _indent
+    global _indent, _outfp
+
+    if _outfp is None:
+        _outfp = open(args.outfilename, 'w')
 
     assert not s.endswith(':')  # no labels
 
@@ -40,7 +45,7 @@ def _emit(args, s):
     if s.startswith('}'):
         _indent -= 4
 
-    sys.stdout.write(' ' * _indent + s + '\n')
+    _outfp.write(' ' * _indent + s + '\n')
 
     if s.endswith('{'):
         _indent += 4
@@ -220,7 +225,6 @@ class Seq(object):
         if has_any:  # last is "any"
             conds1 = [conds1[-1]] + conds1[:-1]  # rearrange
 
-        idx = 0
         for (cond, label, coco) in conds1:
             if cond is True:
                 res.extend([(cond2, label2, coco + coco2)
@@ -229,7 +233,8 @@ class Seq(object):
                 code2 = self._exp2.copy_and_label().getcode(nullok)
                 res.append((cond, label, coco + code2))
 
-            idx += 1
+        res = ([c for c in res if c[0] is not True]
+               + [c for c in res if c[0] is True])
 
         return res
 
@@ -259,6 +264,7 @@ def main():
     parser.add_argument('--nextchar', default='NEXTCHAR')
     parser.add_argument('--label-prefix', default='')
     parser.add_argument('--type-stage', default=False, action='store_true')
+    parser.add_argument('--outfilename')
 
     args = parser.parse_args()
 
@@ -271,14 +277,51 @@ def main():
     spaces = Multiple(SingleChar("c == ' '", ""))
 
     plus = SingleChar("c == '+'", "")
-    minus = SingleChar("c == '-'", p("sign = -1;"))
-    plus_or_minus = Or(plus, Or(minus, Nothing()))
+    minus = SingleChar("c == '-'", "")
 
     change_to_double = "if (col_type == COL_TYPE_INT64) { columns[col_idx].type = col_type = COL_TYPE_DOUBLE; }"
 
     dot = SingleChar("c == '.'", t(change_to_double))
-    digit = SingleChar("(digit = c ^ '0') <= 9", p("value = value * 10 + digit;"))
-    frac_digit = SingleChar("(digit = c ^ '0') <= 9", p("value = value * 10 + digit; ++fracexpo;"))
+
+    pl_digit = SingleChar("(digit = c ^ '0') <= 9", p("value = value * 10 + digit;"))
+    pl_frac_digit = SingleChar("(digit = c ^ '0') <= 9", p("value = value * 10 + digit; ++fracexpo;"))
+    mi_digit = SingleChar("(digit = c ^ '0') <= 9", p("value = value * 10 - digit;"))
+    mi_frac_digit = SingleChar("(digit = c ^ '0') <= 9", p("value = value * 10 - digit; ++fracexpo;"))
+    if args.type_stage:
+        pl_int_digits = Multiple(SingleChar("(digit = c ^ '0') <= 9", ""))
+        pl_frac_digits = pl_int_digits
+        mi_int_digits = pl_int_digits
+        mi_frac_digits = pl_frac_digits
+    else:
+        pl_int_digits = _seq(Multiple(SingleChar("(digit = c ^ '0') <= 9 && (value - 922337203685477580) + ((digit + 8) >> 4) <= 0", "value = value * 10 + digit;")),
+                             Multiple(SingleChar("(digit = c ^ '0') <= 9", "--fracexpo;")))
+        pl_frac_digits = _seq(Multiple(SingleChar("(digit = c ^ '0') <= 9 && (value - 922337203685477580) + ((digit + 8) >> 4) <= 0", "value = value * 10 + digit; ++fracexpo;")),
+                              Multiple(SingleChar("(digit = c ^ '0') <= 9", "")))
+        mi_int_digits = _seq(Multiple(SingleChar("(digit = c ^ '0') <= 9 && (-value - 922337203685477580) + ((digit + 7) >> 4) <= 0", "value = value * 10 - digit;")),
+                             Multiple(SingleChar("(digit = c ^ '0') <= 9", "--fracexpo;")))
+        mi_frac_digits = _seq(Multiple(SingleChar("(digit = c ^ '0') <= 9 && (-value - 922337203685477580) + ((digit + 7) >> 4) <= 0", "value = value * 10 - digit; ++fracexpo;")),
+                              Multiple(SingleChar("(digit = c ^ '0') <= 9", "")))
+
+    pl_mantissa = _seq(Or(plus, Nothing()),
+                       Or(_seq(pl_digit,
+                               pl_int_digits,
+                               Or(_seq(dot,
+                                       pl_frac_digits),
+                                  Nothing())),
+                          _seq(dot,
+                               pl_frac_digit,
+                               pl_frac_digits)))
+
+    mi_mantissa = _seq(minus,
+                       Or(_seq(mi_digit,
+                               mi_int_digits,
+                               Or(_seq(dot,
+                                       mi_frac_digits),
+                                  Nothing())),
+                          _seq(dot,
+                               mi_frac_digit,
+                               mi_frac_digits)))
+
 
     expo_plus = SingleChar("c == '+'", "")
     expo_minus = SingleChar("c == '-'", p("exposign = -1;"))
@@ -298,15 +341,8 @@ def main():
                    Nothing())
 
     expr = _seq(spaces,
-                Or(_seq(plus_or_minus,
-                        Or(_seq(digit,
-                                Multiple(digit),
-                                Or(_seq(dot,
-                                        Multiple(frac_digit)),
-                                   Nothing())),
-                           _seq(dot,
-                                frac_digit,
-                                Multiple(frac_digit))),
+                Or(_seq(Or(pl_mantissa,
+                           mi_mantissa),
                         Or(expo,
                            Nothing()),
                         spaces),

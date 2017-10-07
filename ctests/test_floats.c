@@ -117,8 +117,8 @@ test_one_float(double v)
 static int
 test_floats()
 {
-    const uint64_t min_counter = 0;
     const uint64_t max_counter = ((uint64_t)0x7ff) << 52;
+    const uint64_t min_counter = (1LL << 57);
     uint64_t counter;
     int prev_pct = 0;
 

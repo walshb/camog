@@ -217,6 +217,42 @@ def test_exact():
     assert res[0][0] == 1.0000000000000007
 
 
+def test_max_int_1():
+    csv_str = str((1 << 63) - 1)
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0)[1]
+
+    assert res[0].dtype == int
+    assert res[0][0] == (1 << 63) - 1
+
+
+def test_max_int_2():
+    csv_str = str(1 << 63)
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 123, 456.0)[1]
+
+    assert res[0].dtype == int
+    assert res[0][0] == 123
+
+
+def test_min_int_1():
+    csv_str = str(-(1 << 63))
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0)[1]
+
+    assert res[0].dtype == int
+    assert res[0][0] == -(1 << 63)
+
+
+def test_min_int_2():
+    csv_str = str(-(1 << 63) - 1)
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 123, 456.0)[1]
+
+    assert res[0].dtype == int
+    assert res[0][0] == 123
+
+
 def _do_parse(i):
     v = i
     v, n = _divmod(v, _maxlen)

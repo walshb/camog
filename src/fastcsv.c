@@ -29,6 +29,8 @@
 
 #define LINKED_MAX 1024
 
+#define TO_DOUBLE(V, D) (((V) & ~((uint64_t)15)) / (D) + ((V) & ((uint64_t)15)) / (D))
+
 typedef uint32_t width_t;
 
 typedef struct linked_link_s {
@@ -240,8 +242,7 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
         double val;
         uchar *dest, *q;
         int digit;
-        uint64_t value = 0;
-        int64_t sign = 1;
+        int64_t value = 0;
         int expo = 0;
         int fracexpo = 0;
         int exposign = 1;
@@ -278,16 +279,16 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
 
             if (col_type == COL_TYPE_INT32) {
                 dest = column->arr_ptr + row_idx * sizeof(int32_t);
-                if (p == cellp) {
+                if (p == cellp || fracexpo != 0) {
                     value = common->missing_int_val;
                 }
-                *((int32_t *)dest) = value * sign;
+                *((int32_t *)dest) = value;
             } else if (col_type == COL_TYPE_INT64) {
                 dest = column->arr_ptr + row_idx * sizeof(int64_t);
-                if (p == cellp) {
+                if (p == cellp || fracexpo != 0) {
                     value = common->missing_int_val;
                 }
-                *((int64_t *)dest) = value * sign;
+                *((int64_t *)dest) = value;
             } else {
                 dest = column->arr_ptr + row_idx * sizeof(double);
                 if (p == cellp) {
@@ -300,7 +301,7 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
                         if (expo > 309) {
                             expo = 309;
                         }
-                        val = (long double)value * powers[expo] * sign;
+                        val = (long double)value * powers[expo];
                     } else {
                         /* more accurate to divide by precise value */
                         expo = -expo;
@@ -308,9 +309,9 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
                             if (expo > 340) {
                                 expo = 340;
                             }
-                            val = (long double)value / 1.0e308 / powers[expo - 308] * sign;
+                            val = (long double)value / 1.0e308 / powers[expo - 308];
                         } else {
-                            val = (long double)value / powers[expo] * sign;
+                            val = (long double)value / powers[expo];
                         }
                     }
                 }

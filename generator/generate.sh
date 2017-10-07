@@ -23,7 +23,7 @@ cd $(dirname "$0")
 PYTHON=${PYTHON:-python}
 
 $PYTHON ./powers.py >$DESTDIR/powers.h
-$PYTHON ./parser.py --type-stage --nextchar=NEXTCHAR_NOQUOTES --label-prefix=noquotes >$DESTDIR/parser.h
-$PYTHON ./parser.py --type-stage --nextchar=NEXTCHAR_INQUOTES --label-prefix=inquotes >$DESTDIR/parser_inquotes.h
-$PYTHON ./parser.py --nextchar=NEXTCHAR2_NOQUOTES --label-prefix=noquotes >$DESTDIR/parser2.h
-$PYTHON ./parser.py --nextchar=NEXTCHAR2_INQUOTES --label-prefix=inquotes >$DESTDIR/parser2_inquotes.h
+$PYTHON ./parser.py --type-stage --nextchar=NEXTCHAR_NOQUOTES --label-prefix=noquotes --outfilename=$DESTDIR/parser.h
+$PYTHON ./parser.py --type-stage --nextchar=NEXTCHAR_INQUOTES --label-prefix=inquotes --outfilename=$DESTDIR/parser_inquotes.h
+$PYTHON ./parser.py --nextchar=NEXTCHAR2_NOQUOTES --label-prefix=noquotes --outfilename=$DESTDIR/parser2.h
+$PYTHON ./parser.py --nextchar=NEXTCHAR2_INQUOTES --label-prefix=inquotes --outfilename=$DESTDIR/parser2_inquotes.h
