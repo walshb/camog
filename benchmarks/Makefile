@@ -12,4 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from camog._csv import load
+.PHONY: run build
+
+PYTHON ?= python
+
+run:	build
+	PYTHONVER=$$($(PYTHON) -c 'import sys; print(sys.version[:3])'); cd ..; export PYTHONPATH=$$(/bin/pwd)/$$(echo build/lib*-$${PYTHONVER}):$$(/bin/pwd)/extern_pkgs/lib/python$${PYTHONVER}/site-packages; $(PYTHON) $(CURDIR)/many_doubles.py -n 20000000 --nthreads=4
+
+build:
+	PYTHON=$(PYTHON) ./build.sh

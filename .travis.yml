@@ -1,7 +1,16 @@
+addons:
+  apt:
+    packages:
+      - pandoc
+      - libpcre3
 install:
-  - pip install numpy pytest
+  - pip install cython numpy pytest
 script:
   - make test
+  - .travis/install_swig.sh
+  - export PATH=$(/bin/pwd)/extern_pkgs/swig/bin:$PATH
+  - cd benchmarks
+  - make
 matrix:
   include:
     - language: python
