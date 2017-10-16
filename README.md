@@ -3,7 +3,7 @@ Camóg
 
 [![Build Status](https://travis-ci.org/walshb/camog.svg?branch=master)](https://travis-ci.org/walshb/camog)
 
-A csv parser.
+A fast csv parser for Python and R.
 
 ```
 import camog
@@ -17,9 +17,13 @@ headers, columns = camog.load('foobar.csv', nthreads=4)
 make benchmark
 ```
 
-## Who should use it?
+## Benchmarks
 
-Nobody. It's not ready yet.
+Name                                           | Relative speed (4 threads)
+-----------------------------------------------|---------------------------
+[pandas](https://github.com/pandas-dev/pandas) | 1
+[paratext](https://github.com/wiseio/paratext) | 2.5
+[camog](https://github.com/walshb/camog)       | 5
 
 ## Where's the doc?
 

@@ -32,3 +32,7 @@ test:	all
 
 benchmark:	all
 	export PYTHONPATH=$$(echo $(CURDIR)/build/lib*); cd benchmarks; ./many_doubles.py --names=camog -n 20000000 --nthreads=4
+
+sdist:	parser
+	$(PYTHON) setup.py sdist
+	MYTMP=$$(mktemp -d); cd $$MYTMP; tar xvf $(CURDIR)/dist/*.tar.gz; cd camog-*; python setup.py build; rm -r $$MYTMP
