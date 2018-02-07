@@ -38,3 +38,18 @@ def test_load_invalid_nthreads():
     with pytest.raises(ValueError):
         with th.TempCsvFile(data) as fname:
             camog.load(fname, nthreads=0)
+
+
+def test_load_invalid_fname():
+    data = 'abc,def,ghi\n123,456,789\n'
+
+    with pytest.raises(ValueError):
+        camog.load(object())
+
+
+def test_load_invalid_separator():
+    data = 'abc,def,ghi\n123,456,789\n'
+
+    with pytest.raises(ValueError):
+        with th.TempCsvFile(data) as fname:
+            camog.load(fname, sep=object())

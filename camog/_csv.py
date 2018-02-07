@@ -17,6 +17,11 @@ import multiprocessing
 from . import _cfastcsv
 
 def load(filename, sep=',', headers=True, nthreads=None, flags=0):
+    if not isinstance(filename, str):
+        raise ValueError('Invalid filename %r' % (filename,))
+    if not isinstance(sep, str):
+        raise ValueError('Invalid separator %r' % (sep,))
+
     if nthreads is None:
         nthreads = multiprocessing.cpu_count()
     elif nthreads <= 0:
