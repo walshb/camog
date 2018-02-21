@@ -26,6 +26,7 @@
 typedef struct {
     pthread_mutex_t mutex;
     pthread_cond_t cond;
+    int phase;
     int counter;
     int trigger;
 } osx_pthread_barrier_t;
@@ -51,6 +52,7 @@ int osx_pthread_barrier_init(osx_pthread_barrier_t *barrier,
 {
     int rc;
 
+    barrier->phase = 0;
     barrier->counter = 0;
     barrier->trigger = count;
     if ((rc = pthread_mutex_init(&barrier->mutex, NULL)) < 0) {
@@ -74,16 +76,20 @@ int osx_pthread_barrier_wait(osx_pthread_barrier_t *barrier)
 
     ++barrier->counter;
     if (barrier->counter >= barrier->trigger) {
+        barrier->phase ^= 1;
         barrier->counter = 0;
-        serial = OSX_PTHREAD_BARRIER_SERIAL_THREAD;
         if ((rc = pthread_cond_broadcast(&barrier->cond)) < 0) {
             return rc;
         }
+        serial = OSX_PTHREAD_BARRIER_SERIAL_THREAD;
     } else {
-        serial = 0;
-        if ((rc = pthread_cond_wait(&barrier->cond, &barrier->mutex)) < 0) {
-            return rc;
+        int phase = barrier->phase;
+        while (barrier->phase == phase) {
+            if ((rc = pthread_cond_wait(&barrier->cond, &barrier->mutex)) < 0) {
+                return rc;
+            }
         }
+        serial = 0;
     }
 
     if ((rc = pthread_mutex_unlock(&barrier->mutex)) < 0) {
