@@ -54,8 +54,10 @@ matrix:
         - uname -a
         - brew update
         - brew install python2 || true
-        - virtualenv venv -p python2
-        - . venv/bin/activate
+        - curl -LO https://pypi.python.org/packages/source/v/virtualenv/virtualenv-16.0.0.tar.gz
+        - tar -xf virtualenv-16.0.0.tar.gz
+        - python2 virtualenv-16.0.0/virtualenv.py -p python2 myenv
+        - . myenv/bin/activate
       install:
         - pip install numpy pytest
       script:
