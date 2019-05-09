@@ -28,3 +28,12 @@ def load(filename, sep=',', headers=True, nthreads=None, flags=0):
         raise ValueError('Invalid nthreads %s' % nthreads)
 
     return _cfastcsv.parse_file(filename, sep, nthreads, flags, 1 if headers else 0)
+
+
+def loads(s, sep=',', headers=True, nthreads=None, flags=0):
+    if nthreads is None:
+        nthreads = multiprocessing.cpu_count()
+    elif nthreads <= 0:
+        raise ValueError('Invalid nthreads %s' % nthreads)
+
+    return _cfastcsv.parse_csv(s, sep, nthreads, flags, 1 if headers else 0)
