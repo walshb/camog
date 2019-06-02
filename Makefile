@@ -16,12 +16,12 @@
 
 PYTHON ?= python
 
-all:	parser
+all:
 	CFLAGS='' $(PYTHON) setup.py build
 
 parser:
 	mkdir -p gensrc
-	cd gensrc; PYTHON=$(PYTHON) $(CURDIR)/generator/generate.sh
+	cd gensrc; $(PYTHON) $(CURDIR)/generator/generate.py
 
 clean:
 	cd camog; rm -rf $$(find . -name '*.so')
@@ -33,6 +33,6 @@ test:	all
 benchmark:	all
 	export PYTHONPATH=$$(echo $(CURDIR)/build/lib*); cd benchmarks; ./many_doubles.py --names=camog -n 20000000 --nthreads=4
 
-sdist:	parser
+sdist:
 	$(PYTHON) setup.py sdist
 	MYTMP=$$(mktemp -d); cd $$MYTMP; tar xvf $(CURDIR)/dist/*.tar.gz; cd camog-*; python setup.py build; rm -r $$MYTMP

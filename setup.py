@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+import os
 import subprocess
 import numpy as np
 
@@ -33,6 +35,16 @@ try:
                            stdout=subprocess.PIPE).communicate()[0].decode('utf-8')
 except OSError:
     long_description = open('README.md').read()
+
+mydir = os.path.dirname(os.path.abspath(__file__))
+generate_py = os.path.join(mydir, 'generator', 'generate.py')
+if os.path.exists(generate_py):
+    destdir = os.path.join(mydir, 'gensrc')
+    try:
+        os.makedirs(destdir)
+    except OSError:
+        pass
+    subprocess.check_call([sys.executable, generate_py], cwd=destdir)
 
 setup(name='camog',
       version=__version__,
