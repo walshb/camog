@@ -15,9 +15,10 @@
 .PHONY:	all parser clean test benchmark
 
 PYTHON ?= python
+CFLAGS ?= -Wall -Werror -Wsign-compare -Wstrict-prototypes -Wstrict-aliasing=0 -Werror=declaration-after-statement
 
 all:
-	CFLAGS='' $(PYTHON) setup.py build
+	CFLAGS='$(CFLAGS)' $(PYTHON) setup.py build
 
 parser:
 	mkdir -p gensrc
@@ -25,10 +26,10 @@ parser:
 
 clean:
 	cd camog; rm -rf $$(find . -name '*.so')
-	rm -rf $$(find . -name '__pycache__' -print) gensrc build .cache
+	rm -rf $$(find . -name '__pycache__' -print) gensrc build dist .cache *.egg-info
 
 test:	all
-	export PYTHONPATH=$$(echo $(CURDIR)/build/lib*); cd tests; $(PYTHON) -m pytest -sv --pdb test_fastcsv.py test_headers.py test_edge.py test_file.py test_api.py test_chunks.py test_lineends.py test_numbers.py test_format.py
+	export PYTHONPATH=$$(echo $(CURDIR)/build/lib*); cd tests; $(PYTHON) -m pytest -sv test_fastcsv.py test_headers.py test_edge.py test_file.py test_api.py test_chunks.py test_lineends.py test_numbers.py test_format.py
 
 benchmark:	all
 	export PYTHONPATH=$$(echo $(CURDIR)/build/lib*); cd benchmarks; ./many_doubles.py --names=camog -n 20000000 --nthreads=4

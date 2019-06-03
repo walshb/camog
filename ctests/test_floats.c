@@ -18,13 +18,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "fastcsv.h"
-
-typedef union {
-    uint64_t l;
-    double d;
-} ULongDouble;
 
 typedef struct {
     FastCsvResult r;
@@ -35,7 +31,6 @@ typedef struct {
 static void *
 test_add_column(FastCsvResult *res, int col_type, size_t nrows, size_t width)
 {
-    void *arr;
     TestFastCsvResult *testres = (TestFastCsvResult *)res;
 
     if (col_type != COL_TYPE_DOUBLE && col_type != COL_TYPE_INT64) {
@@ -63,7 +58,6 @@ static int
 test_parse_csv(const uchar *csv_buf, size_t buf_len, uchar sep, int nthreads,
                int flags, int nheaders, TestFastCsvResult *result)
 {
-    int i;
     FastCsvInput input;
 
     init_csv(&input, csv_buf, buf_len, nheaders, nthreads);
@@ -93,18 +87,18 @@ test_one_float(double v)
         fprintf(stderr, "%s did not round-trip\n", buf);
     }
 
-    test_parse_csv(buf, buf_len, ',', 1, 0, 0, &result);
+    test_parse_csv((uchar *)buf, buf_len, ',', 1, 0, 0, &result);
 
     if (result.col_type == COL_TYPE_DOUBLE
         && memcmp(&v, &result.result, sizeof(double)) != 0) {
-        ULongDouble uv, wv, rv;
-        uv.d = v;
-        wv.d = w;
-        rv.d = result.result;
+        uint64_t vl, wl, rl;
+        memcpy(&vl, &v, sizeof(double));
+        memcpy(&wl, &w, sizeof(double));
+        memcpy(&rl, &result.result, sizeof(double));
         fprintf(stderr, "camog %s => %.17g\n", buf, result.result);
-        fprintf(stderr, "original: %lx\n", uv.l);
-        fprintf(stderr, "libc    : %lx\n", wv.l);
-        fprintf(stderr, "camog   : %lx\n", rv.l);
+        fprintf(stderr, "original: %" PRIx64 "\n", vl);
+        fprintf(stderr, "libc    : %" PRIx64 "\n", wl);
+        fprintf(stderr, "camog   : %" PRIx64 "\n", rl);
 
         fprintf(stderr, "inconsistent!\n");
 
@@ -115,10 +109,10 @@ test_one_float(double v)
 }
 
 static int
-test_floats()
+test_floats(void)
 {
     const uint64_t max_counter = ((uint64_t)0x7ff) << 52;
-    const uint64_t min_counter = (1LL << 57);
+    const uint64_t min_counter = 0;
     uint64_t counter;
     int prev_pct = 0;
 

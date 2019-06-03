@@ -24,12 +24,9 @@
 #include "osx_pthread_barrier.h"
 
 #include "fastcsv.h"
-
-#include "powers.h"
+#include "fastcsv_todouble.h"
 
 #define LINKED_MAX 1024
-
-#define TO_DOUBLE(V, D) (((V) & ~((uint64_t)15)) / (D) + ((V) & ((uint64_t)15)) / (D))
 
 typedef uint32_t width_t;
 
@@ -294,26 +291,19 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
                 if (p == cellp) {
                     val = common->missing_float_val;
                 } else if (expo == INT_MIN) {
-                    val = 0.0 / 0.0;  /* NaN */
+                    val = NAN;
+                } else if (value == 0) {
+                    val = 0.0;
                 } else {
+                    int sign;
                     expo = expo * exposign - fracexpo;
-                    if (expo >= 0) {
-                        if (expo > 309) {
-                            expo = 309;
-                        }
-                        val = (long double)value * powers[expo];
+                    if (value > 0) {
+                        sign = 1;
                     } else {
-                        /* more accurate to divide by precise value */
-                        expo = -expo;
-                        if (expo > 308) {
-                            if (expo > 340) {
-                                expo = 340;
-                            }
-                            val = (long double)value / 1.0e308 / powers[expo - 308];
-                        } else {
-                            val = (long double)value / powers[expo];
-                        }
+                        sign = -1;
+                        value = -value;
                     }
+                    FASTCSV_TODOUBLE(sign, value, expo, val);
                 }
                 *((double *)dest) = val;
             }

@@ -23,6 +23,9 @@ mydir = os.path.dirname(__file__)
 with open('powers.h', 'w') as fp:
     subprocess.check_call([sys.executable, os.path.join(mydir, 'powers.py')], stdout=fp)
 
+with open('powers5.h', 'w') as fp:
+    subprocess.check_call([sys.executable, os.path.join(mydir, 'powers5.py')], stdout=fp)
+
 subprocess.check_call([sys.executable, os.path.join(mydir, 'parser.py'),
                        '--type-stage', '--nextchar=NEXTCHAR_NOQUOTES',
                        '--label-prefix=noquotes',

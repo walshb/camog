@@ -6,7 +6,7 @@ addons:
 install:
   - pip install cython numpy pytest
 script:
-  - make test
+  - .travis/build_and_test.sh
 deploy:
   provider: pypi
   user: walshb
@@ -61,6 +61,6 @@ matrix:
       install:
         - pip install numpy pytest
       script:
-        - make test
+        - .travis/build_and_test.sh
       after_deploy:
         - /usr/bin/true

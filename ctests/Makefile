@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CC := gcc
-CFLAGS := -DDEBUG_SERIAL -O2 -Werror -I../src -I../gensrc
+CFLAGS := -DDEBUG_SERIAL -O2 -Wall -Werror -I../src -I../gensrc $(CFLAGS)
 
-.PHONY:	all clean parser
+.PHONY:	all clean parser test
 
 all: build/test_floats
 
@@ -27,6 +26,9 @@ build/fastcsv.o: ../src/fastcsv.c parser build
 
 build/%.o: %.c build
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+test:	build/test_floats
+	./build/test_floats
 
 parser:
 	cd ..; make parser

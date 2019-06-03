@@ -22,7 +22,7 @@ maxexpo = 310   # exclusive
 sys.stdout.write('long double powers[] = {')
 for expo in range(minexpo, maxexpo):
     if expo >= maxexpo - 1:
-        sys.stdout.write('1.0 / 0.0')
+        sys.stdout.write('INFINITY')
     else:
         sys.stdout.write('1.0e%sL' % expo)
     if expo < maxexpo - 1:
