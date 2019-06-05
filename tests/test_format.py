@@ -58,7 +58,7 @@ def _cols_equal(cols1, cols2):
         return False
 
     for col1, col2 in zip(cols1, cols2):
-        if col1.dtype == int:
+        if col1.dtype.kind == 'i':
             if not np.allclose(col1, np.array(_to_ints(col2))):
                 return False
         else:

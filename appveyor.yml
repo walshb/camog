@@ -1,4 +1,4 @@
-# Copyright 2017 Ben Walsh
+# Copyright 2019 Ben Walsh
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,29 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CFLAGS := -DDEBUG_SERIAL -O2 -Wall -Werror -I../src -I../gensrc $(CFLAGS)
+branches:
+  only:
+    - bw-dev-windows
 
-.PHONY:	all clean parser test
+environment:
+  matrix:
+    - PYTHON: "C:\\Python37-x64"
 
-all: build/test_floats
-
-build/test_floats: build/test_floats.o build/fastcsv.o
-	$(CC) $^ -lpthread -o $@
-
-build/fastcsv.o: ../src/fastcsv.c parser build
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-build/%.o: %.c build
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-test:	build/test_floats
-	./build/test_floats
-
-parser:
-	cd ..; make parser
-
-build:
-	mkdir build
-
-clean:
-	rm -rf build
+build_script:
+  - set PATH=%PYTHON%;%PYTHON%\Scripts;%PATH%
+  - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
+  - python --version
+  - python -c "import struct; print(struct.calcsize('P') * 8)"
+  - pip install numpy pytest
+  - python .ci\build_and_test.py

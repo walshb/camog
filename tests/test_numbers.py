@@ -158,7 +158,7 @@ def test_missing_int_val():
 
     res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 123, 0.0)[1]
 
-    assert res[0].dtype == int
+    assert res[0].dtype.kind == 'i'
     assert len(res[0]) == 1
     assert np.all(res[0] == np.array([123]))
 
@@ -168,8 +168,8 @@ def test_missing_int_val_2():
 
     res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 123, 0.0)[1]
 
-    assert res[0].dtype == int
-    assert res[1].dtype == int
+    assert res[0].dtype.kind == 'i'
+    assert res[1].dtype.kind == 'i'
     assert len(res[0]) == 3
     assert len(res[1]) == 3
     assert np.all(res[0] == np.array([1, 1, 1]))
@@ -191,7 +191,7 @@ def test_missing_float_val2():
 
     res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 0, 456.0)[1]
 
-    assert res[0].dtype == int
+    assert res[0].dtype.kind == 'i'
     assert res[1].dtype == float
     assert len(res[0]) == 3
     assert len(res[1]) == 3
@@ -222,7 +222,7 @@ def test_max_int_1():
 
     res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0)[1]
 
-    assert res[0].dtype == int
+    assert res[0].dtype.kind == 'i'
     assert res[0][0] == (1 << 63) - 1
 
 
@@ -231,7 +231,7 @@ def test_max_int_2():
 
     res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 123, 456.0)[1]
 
-    assert res[0].dtype == int
+    assert res[0].dtype.kind == 'i'
     assert res[0][0] == 123
 
 
@@ -240,7 +240,7 @@ def test_min_int_1():
 
     res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0)[1]
 
-    assert res[0].dtype == int
+    assert res[0].dtype.kind == 'i'
     assert res[0][0] == -(1 << 63)
 
 
@@ -249,7 +249,7 @@ def test_min_int_2():
 
     res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 123, 456.0)[1]
 
-    assert res[0].dtype == int
+    assert res[0].dtype.kind == 'i'
     assert res[0][0] == 123
 
 

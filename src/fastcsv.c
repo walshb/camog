@@ -14,11 +14,16 @@
  * limitations under the License.
  */
 
+#ifdef _WIN32
+#include <process.h>
+#else
 #include <stdint.h>
+#include <pthread.h>
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#include <pthread.h>
 #include <math.h>
 
 #include "osx_pthread_barrier.h"
@@ -787,7 +792,11 @@ fixup_parse(ThreadCommon *common)
     return 0;
 }
 
+#ifdef _WIN32
+static unsigned int __stdcall
+#else
 static void *
+#endif
 parse_thread(void *data)
 {
     ThreadData *thread_data = (ThreadData *)data;
@@ -829,7 +838,11 @@ parse_thread(void *data)
     fill_arrays(common, chunk);
 #endif
 
+#ifdef _WIN32
+    return 0;
+#else
     return NULL;
+#endif
 }
 
 static const uchar *
@@ -937,7 +950,11 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
     Chunk *chunks;
     ThreadData *thread_datas;
     ThreadCommon common;
+#ifdef _WIN32
+    HANDLE *threads;
+#else
     pthread_t *threads;
+#endif
 
     buf_end = input->csv_buf + buf_len;
 
@@ -980,6 +997,17 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
         thread_datas[i].common = &common;
     }
 
+#ifdef _WIN32
+    threads = (HANDLE *)malloc(nthreads * sizeof(HANDLE));
+    for (i = 0; i < nthreads; i++) {
+        threads[i] = (HANDLE)_beginthreadex(NULL, 0, parse_thread, (void *)&thread_datas[i], 0, NULL);
+    }
+
+    for (i = 0; i < nthreads; i++) {
+        WaitForSingleObject(threads[i], INFINITE);
+        CloseHandle(threads[i]);
+    }
+#else
     threads = (pthread_t *)malloc(nthreads * sizeof(pthread_t));
     for (i = 0; i < nthreads; i++) {
         pthread_create(&threads[i], NULL, parse_thread, (void *)&thread_datas[i]);
@@ -988,6 +1016,7 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
     for (i = 0; i < nthreads; i++) {
         pthread_join(threads[i], NULL);
     }
+#endif
 
     /* free */
     free(threads);
@@ -1001,6 +1030,9 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
     }
     free(chunks);
     free(common.str_idxs);
+
+    pthread_barrier_destroy(&common.barrier1);
+    pthread_barrier_destroy(&common.barrier2);
 
     return 0;
 }

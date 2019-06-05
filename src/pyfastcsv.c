@@ -20,7 +20,11 @@
 #include "numpy/arrayobject.h"
 
 #include <fcntl.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <sys/mman.h>
+#endif
 
 #include "fastcsv.h"
 
@@ -152,6 +156,9 @@ parse_file_func(PyObject *self, PyObject *args)
     PyObject *fname_obj;
     PyObject *sep_obj = NULL;
     PyObject *res;
+#ifdef _WIN32
+    HANDLE map_handle;
+#endif
     void *filedata;
     const char *fname;
     int nthreads = 4;
@@ -178,15 +185,25 @@ parse_file_func(PyObject *self, PyObject *args)
 
     fstat(fd, &stat_buf);
 
+#ifdef _WIN32
+    map_handle = CreateFileMapping((HANDLE)_get_osfhandle(fd), 0, PAGE_READONLY, 0, 0, 0);
+    filedata = MapViewOfFile(map_handle, FILE_MAP_READ, 0, 0, stat_buf.st_size);
+#else
     if ((filedata = mmap(NULL, stat_buf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
         close(fd);
         return PyErr_Format(PyExc_IOError, "%s: mmap failed", fname);
     }
+#endif
 
     res = py_parse_csv(filedata, stat_buf.st_size, sep_obj, nthreads, flags, nheaders,
                        missing_int_val, missing_float_val);
 
+#ifdef _WIN32
+    UnmapViewOfFile(filedata);
+    CloseHandle(map_handle);
+#else
     munmap(filedata, stat_buf.st_size);
+#endif
 
     close(fd);
 

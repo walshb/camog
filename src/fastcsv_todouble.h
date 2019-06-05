@@ -19,6 +19,18 @@
 
 #include <stdlib.h>
 
+#ifndef NAN
+#define INFINITY ((double)(1e300 * 1e300))
+#define NAN ((double)INFINITY * 0.0F)
+#endif
+
+#ifdef _WIN32
+#define NO_LONG_DOUBLE
+#define CLZ(m, lz) _BitScanReverse64(&lz, m); lz = 61 - lz
+#else
+#define CLZ(m, lz) lz = __builtin_clzl(m) - 2
+#endif
+
 #ifdef NO_LONG_DOUBLE
 
 #include "powers5.h"
@@ -30,7 +42,7 @@
         e = (e > 309) ? 309 : (e < -340) ? -340 : e;            \
         r = pow5[e + 340];                                      \
         c = shift5[e + 340];                                    \
-        lz = __builtin_clzl(m) - 2;                             \
+        CLZ(m, lz);                                             \
         m2 = m << lz;                                           \
         c -= lz;                                                \
         alo = m2 & 0x7fffffffL;                                 \

@@ -51,7 +51,7 @@ def test_empty_first_line2():
 
     assert len(res) == 3
 
-    assert res[0].dtype == int
+    assert res[0].dtype.kind == 'i'
     assert np.all(res[0] == th.array([0, 0]))
     assert res[1].dtype == 'S1'
     assert np.all(res[1] == th.array(['', 'a']))
@@ -64,9 +64,9 @@ def test_empty_line():
 
     assert len(res) == 2
 
-    assert res[0].dtype == int
+    assert res[0].dtype.kind == 'i'
     assert np.all(res[0] == th.array([0, 0, 0]))
-    assert res[1].dtype == int
+    assert res[1].dtype.kind == 'i'
     assert np.all(res[1] == th.array([0, 0, 1]))
 
 

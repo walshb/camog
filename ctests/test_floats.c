@@ -15,12 +15,17 @@
  */
 
 #include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "fastcsv.h"
+
+#ifdef _WIN32
+#define PRIx64 "llx"
+#else
+#include <stdint.h>
+#include <inttypes.h>
+#endif
 
 typedef struct {
     FastCsvResult r;
@@ -116,7 +121,7 @@ test_floats(void)
     uint64_t counter;
     int prev_pct = 0;
 
-    for (counter = min_counter; counter < max_counter; counter += ((1LL << 41) - 1)) {
+    for (counter = min_counter; counter < max_counter; counter += ((1LL << 42) - 1)) {
         double v;
         int pct;
 

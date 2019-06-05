@@ -17,6 +17,14 @@
 #ifndef _FASTCSV_H
 #define _FASTCSV_H
 
+#ifdef _WIN32
+#include <limits.h>
+typedef unsigned __int64 uint64_t;
+typedef __int64 int64_t;
+typedef unsigned __int32 uint32_t;
+typedef __int32 int32_t;
+#endif
+
 #define COL_TYPE_INT32 1
 #define COL_TYPE_INT64 2
 #define COL_TYPE_DOUBLE 3

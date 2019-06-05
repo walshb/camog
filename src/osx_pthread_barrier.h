@@ -14,35 +14,50 @@
  * limitations under the License.
  */
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32)
 
 #ifndef OSX_PTHREAD_BARRIER_H
 #define OSX_PTHREAD_BARRIER_H
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <pthread.h>
+#endif
 
 #define OSX_PTHREAD_BARRIER_SERIAL_THREAD -1
 
 typedef struct {
+#ifdef _WIN32
+    CRITICAL_SECTION mutex;
+    CONDITION_VARIABLE cond;
+#else
     pthread_mutex_t mutex;
     pthread_cond_t cond;
+#endif
     int phase;
     int counter;
     int trigger;
 } osx_pthread_barrier_t;
 
 typedef struct {
+    int dummy;
 } osx_pthread_barrier_attr_t;
 
 int osx_pthread_barrier_destroy(osx_pthread_barrier_t *barrier)
 {
+#ifdef _WIN32
+    DeleteCriticalSection(&barrier->mutex);
+#else
     int rc;
+
     if ((rc = pthread_cond_destroy(&barrier->cond)) < 0) {
         return rc;
     }
     if ((rc = pthread_mutex_destroy(&barrier->mutex)) < 0) {
         return rc;
     }
+#endif
     return 0;
 }
 
@@ -50,11 +65,12 @@ int osx_pthread_barrier_init(osx_pthread_barrier_t *barrier,
                              const osx_pthread_barrier_attr_t *attr,
                              unsigned int count)
 {
+#ifdef _WIN32
+    InitializeCriticalSection(&barrier->mutex);
+    InitializeConditionVariable(&barrier->cond);
+#else
     int rc;
 
-    barrier->phase = 0;
-    barrier->counter = 0;
-    barrier->trigger = count;
     if ((rc = pthread_mutex_init(&barrier->mutex, NULL)) < 0) {
         return rc;
     }
@@ -62,39 +78,64 @@ int osx_pthread_barrier_init(osx_pthread_barrier_t *barrier,
         pthread_mutex_destroy(&barrier->mutex);
         return rc;
     }
+#endif
+
+    barrier->phase = 0;
+    barrier->counter = 0;
+    barrier->trigger = count;
 
     return 0;
 }
 
 int osx_pthread_barrier_wait(osx_pthread_barrier_t *barrier)
 {
-    int rc, serial;
+    int serial;
+
+#ifdef _WIN32
+    EnterCriticalSection(&barrier->mutex);
+#else
+    int rc;
 
     if ((rc = pthread_mutex_lock(&barrier->mutex)) < 0) {
         return rc;
     }
+#endif
 
     ++barrier->counter;
     if (barrier->counter >= barrier->trigger) {
         barrier->phase ^= 1;
         barrier->counter = 0;
+#ifdef _WIN32
+        WakeAllConditionVariable(&barrier->cond);
+#else
         if ((rc = pthread_cond_broadcast(&barrier->cond)) < 0) {
             return rc;
         }
+#endif
         serial = OSX_PTHREAD_BARRIER_SERIAL_THREAD;
     } else {
         int phase = barrier->phase;
         while (barrier->phase == phase) {
+#ifdef _WIN32
+            if (!SleepConditionVariableCS(&barrier->cond, &barrier->mutex, INFINITE)) {
+                return OSX_PTHREAD_BARRIER_SERIAL_THREAD - 1;  /* another -ve number */
+            }
+#else
             if ((rc = pthread_cond_wait(&barrier->cond, &barrier->mutex)) < 0) {
                 return rc;
             }
+#endif
         }
         serial = 0;
     }
 
+#ifdef _WIN32
+    LeaveCriticalSection(&barrier->mutex);
+#else
     if ((rc = pthread_mutex_unlock(&barrier->mutex)) < 0) {
         return rc;
     }
+#endif
 
     return serial;
 }
