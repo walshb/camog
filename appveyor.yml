@@ -14,7 +14,8 @@
 
 branches:
   only:
-    - bw-dev-windows
+    - master
+    - bw-dev
 
 environment:
   matrix:
