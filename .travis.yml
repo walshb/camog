@@ -62,15 +62,11 @@ matrix:
       after_deploy:
         - /bin/true
     - os: osx
-      # Travis doesn't support Python on OSX, so use generic
-      language: generic
+      osx_image: xcode11.2  # Python 3.7.4 running on macOS 10.14.4
+      language: shell
       before_install:
         - uname -a
-        - brew update
-        - brew install python2 || true
-        - curl -LO https://pypi.python.org/packages/source/v/virtualenv/virtualenv-16.0.0.tar.gz
-        - tar -xf virtualenv-16.0.0.tar.gz
-        - python2 virtualenv-16.0.0/virtualenv.py -p python2 myenv
+        - .ci/virtualenv.sh --system-site-packages myenv
         - . myenv/bin/activate
       install:
         - pip install numpy pytest
