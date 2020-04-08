@@ -62,12 +62,22 @@ py_add_column(FastCsvResult *res, int col_type, size_t nrows, size_t width)
 static int
 py_add_header(FastCsvResult *res, const uchar *str, size_t len)
 {
+    PyFastCsvResult *pyres;
 #if PY_MAJOR_VERSION >= 3
     PyObject *str_obj = PyUnicode_FromStringAndSize((char *)str, len);
+    if (str_obj == NULL) {
+        PyErr_Clear();
+        str_obj = PyBytes_FromStringAndSize((char *)str, len);
+    }
 #else
     PyObject *str_obj = PyString_FromStringAndSize((char *)str, len);
 #endif
-    PyFastCsvResult *pyres = (PyFastCsvResult *)res;
+
+    if (str_obj == NULL) {
+        return -1;
+    }
+
+    pyres = (PyFastCsvResult *)res;
 
     PyList_Append(pyres->headers, str_obj);  /* increfs */
     Py_DECREF(str_obj);
@@ -110,7 +120,9 @@ py_parse_csv(const uchar *csv_buf, size_t buf_len, PyObject *sep_obj, int nthrea
     }
     result.columns = PyList_New(0);
 
-    parse_csv(&input, (FastCsvResult *)&result);
+    if (parse_csv(&input, (FastCsvResult *)&result) < 0) {
+        return NULL;
+    }
 
     res_obj = PyTuple_New(2);
     PyTuple_SET_ITEM(res_obj, 0, result.headers);

@@ -53,3 +53,13 @@ def test_load_invalid_separator():
     with pytest.raises(ValueError):
         with th.TempCsvFile(data) as fname:
             camog.load(fname, sep=object())
+
+
+def test_load_bad_utf8():
+    bdata = b'\xbf'
+
+    with th.TempCsvFile(data=None, bdata=bdata) as fname:
+        headers, _ = camog.load(fname)
+
+    assert isinstance(headers[0], bytes)
+    assert headers[0] == bdata

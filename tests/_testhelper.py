@@ -35,8 +35,8 @@ SPACE = b' '
 COMMA = b','
 
 class TempCsvFile(object):
-    def __init__(self, data):
-        self._data = string(data, 'utf8')
+    def __init__(self, data, bdata=None):
+        self._data = bdata or string(data, 'utf8')
 
     def __enter__(self):
         self._dirname = tempfile.mkdtemp()

@@ -911,7 +911,10 @@ parse_headers(ThreadCommon *common, const uchar *csv_buf, const uchar *buf_end)
             c = *p;
         }
     atstringend:
-        common->result->add_header(common->result, cellbuf, q - cellbuf);
+        if (common->result->add_header(common->result, cellbuf, q - cellbuf)) {
+            return NULL;
+        }
+
         if (p >= buf_end) {
             break;
         }
@@ -947,6 +950,7 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
     const uchar *buf_end;
     const uchar *data_begin;
     int i;
+    int rc = 0;
     Chunk *chunks;
     ThreadData *thread_datas;
     ThreadCommon common;
@@ -974,6 +978,10 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
 
     if (input->nheaders) {
         data_begin = parse_headers(&common, input->csv_buf, buf_end);
+        if (data_begin == NULL) {
+            rc = -1;
+            goto done;
+        }
         buf_len = buf_end - data_begin;
     } else {
         data_begin = input->csv_buf;
@@ -1028,11 +1036,14 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
         chunk_free(common.bigchunk);
         free(common.bigchunk);
     }
+
+    done:
+
     free(chunks);
     free(common.str_idxs);
 
     pthread_barrier_destroy(&common.barrier1);
     pthread_barrier_destroy(&common.barrier2);
 
-    return 0;
+    return rc;
 }
