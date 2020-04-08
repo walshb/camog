@@ -37,6 +37,7 @@ clean:
 
 setupfuzz:
 	sudo sh -c 'cd /sys/devices/system/cpu; echo performance | tee cpu*/cpufreq/scaling_governor'
+	sudo sh -c 'echo core >/proc/sys/kernel/core_pattern'
 	sudo sh -c 'mkdir -p /mnt/afl; mount -t tmpfs -o size=1G tmpfs /mnt/afl'
 
 fuzz:
