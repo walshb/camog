@@ -30,6 +30,7 @@
 
 typedef struct {
     FastCsvResult r;
+    PyObject *col_to_type;
     PyObject *headers;
     PyObject *columns;
 } PyFastCsvResult;
@@ -84,9 +85,68 @@ py_add_header(FastCsvResult *res, const uchar *str, size_t len)
     return 0;
 }
 
+static int
+py_fix_column_type(FastCsvResult *res, int col_idx, int col_type)
+{
+    PyFastCsvResult *pyres = (PyFastCsvResult *)res;
+    PyObject *pytype = NULL;
+    PyObject *col_name;
+
+    if (pyres->col_to_type == NULL || pyres->col_to_type == Py_None) {
+        return col_type;
+    }
+
+    col_name = PySequence_GetItem(pyres->headers, col_idx);
+    if (col_name == NULL) {
+        PyErr_Clear();
+    } else {
+        pytype = PyDict_GetItem(pyres->col_to_type, col_name);  /* borrowed */
+        Py_DECREF(col_name);
+    }
+
+    if (pytype == NULL) {
+#if PY_MAJOR_VERSION >= 3
+        col_name = PyLong_FromLong(col_idx);
+#else
+        col_name = PyInt_FromLong(col_idx);
+#endif
+        pytype = PyDict_GetItem(pyres->col_to_type, col_name);  /* borrowed */
+        Py_DECREF(col_name);
+    }
+
+    if (pytype == NULL) {
+        return col_type;
+    }
+
+    if (pytype == (PyObject *)
+#if PY_MAJOR_VERSION >= 3
+        &PyUnicode_Type
+#else
+        &PyString_Type
+#endif
+        ) {
+        return COL_TYPE_STRING;
+    }
+    if (pytype == (PyObject *)
+#if PY_MAJOR_VERSION >= 3
+        &PyLong_Type
+#else
+        &PyInt_Type
+#endif
+        ) {
+        return COL_TYPE_INT64;
+    }
+    if (pytype == (PyObject *)&PyFloat_Type) {
+        return COL_TYPE_DOUBLE;
+    }
+
+    return col_type;
+}
+
 static PyObject *
 py_parse_csv(const uchar *csv_buf, size_t buf_len, PyObject *sep_obj, int nthreads,
-             int flags, int nheaders, int64_t missing_int_val, double missing_float_val)
+             int flags, int nheaders, int64_t missing_int_val, double missing_float_val,
+             PyObject *col_to_type)
 {
     uchar sep;
     FastCsvInput input;
@@ -111,7 +171,7 @@ py_parse_csv(const uchar *csv_buf, size_t buf_len, PyObject *sep_obj, int nthrea
 
     result.r.add_header = &py_add_header;
     result.r.add_column = &py_add_column;
-    result.r.fix_column_type = NULL;
+    result.r.fix_column_type = &py_fix_column_type;
     if (nheaders == 0) {
         Py_INCREF(Py_None);
         result.headers = Py_None;
@@ -119,6 +179,7 @@ py_parse_csv(const uchar *csv_buf, size_t buf_len, PyObject *sep_obj, int nthrea
         result.headers = PyList_New(0);
     }
     result.columns = PyList_New(0);
+    result.col_to_type = col_to_type;
 
     if (parse_csv(&input, (FastCsvResult *)&result) < 0) {
         return NULL;
@@ -134,7 +195,7 @@ py_parse_csv(const uchar *csv_buf, size_t buf_len, PyObject *sep_obj, int nthrea
 static PyObject *
 parse_csv_func(PyObject *self, PyObject *args)
 {
-    PyObject *str_obj, *sep_obj = NULL;
+    PyObject *str_obj, *sep_obj = NULL, *col_to_type = NULL;
     const uchar *csv_buf;
     Py_ssize_t buf_len;
     int nthreads = 4;
@@ -143,8 +204,9 @@ parse_csv_func(PyObject *self, PyObject *args)
     int missing_int_val = 0;
     double missing_float_val = 0.0;
 
-    if (!PyArg_ParseTuple(args, "O|Oiiiid", &str_obj, &sep_obj, &nthreads,
-                          &flags, &nheaders, &missing_int_val, &missing_float_val)) {
+    if (!PyArg_ParseTuple(args, "O|OiiiidO", &str_obj, &sep_obj, &nthreads,
+                          &flags, &nheaders, &missing_int_val, &missing_float_val,
+                          &col_to_type)) {
         return NULL;
     }
 
@@ -159,14 +221,14 @@ parse_csv_func(PyObject *self, PyObject *args)
 #endif
 
     return py_parse_csv(csv_buf, buf_len, sep_obj, nthreads, flags, nheaders,
-                        missing_int_val, missing_float_val);
+                        missing_int_val, missing_float_val, col_to_type);
 }
 
 static PyObject *
 parse_file_func(PyObject *self, PyObject *args)
 {
     PyObject *fname_obj;
-    PyObject *sep_obj = NULL;
+    PyObject *sep_obj = NULL, *col_to_type = NULL;
     PyObject *res;
 #ifdef _WIN32
     HANDLE map_handle;
@@ -181,8 +243,9 @@ parse_file_func(PyObject *self, PyObject *args)
     int fd;
     struct stat stat_buf;
 
-    if (!PyArg_ParseTuple(args, "O|Oiiiid", &fname_obj, &sep_obj, &nthreads,
-                          &flags, &nheaders, &missing_int_val, &missing_float_val)) {
+    if (!PyArg_ParseTuple(args, "O|OiiiidO", &fname_obj, &sep_obj, &nthreads,
+                          &flags, &nheaders, &missing_int_val, &missing_float_val,
+                          &col_to_type)) {
         return NULL;
     }
 
@@ -208,7 +271,7 @@ parse_file_func(PyObject *self, PyObject *args)
 #endif
 
     res = py_parse_csv(filedata, stat_buf.st_size, sep_obj, nthreads, flags, nheaders,
-                       missing_int_val, missing_float_val);
+                       missing_int_val, missing_float_val, col_to_type);
 
 #ifdef _WIN32
     UnmapViewOfFile(filedata);

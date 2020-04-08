@@ -16,7 +16,8 @@ import multiprocessing
 
 from . import _cfastcsv
 
-def load(filename, sep=',', headers=True, nthreads=None, flags=0):
+def load(filename, sep=',', headers=True, nthreads=None, flags=0, col_to_type=None,
+         missing_int_val=0, missing_float_val=0.0):
     if not isinstance(filename, str):
         raise ValueError('Invalid filename %r' % (filename,))
     if not isinstance(sep, str):
@@ -27,7 +28,10 @@ def load(filename, sep=',', headers=True, nthreads=None, flags=0):
     elif nthreads <= 0:
         raise ValueError('Invalid nthreads %s' % nthreads)
 
-    return _cfastcsv.parse_file(filename, sep, nthreads, flags, 1 if headers else 0)
+    return _cfastcsv.parse_file(filename, sep, nthreads, flags,
+                                1 if headers else 0,
+                                missing_int_val, missing_float_val,
+                                col_to_type)
 
 
 def loads(s, sep=',', headers=True, nthreads=None, flags=0):

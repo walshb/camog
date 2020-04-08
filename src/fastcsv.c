@@ -259,112 +259,166 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
 
         c = *p;
 
-        if (col_type != COL_TYPE_STRING) {
-            if (c == '"') {
-                ++nquotes;
-                ++cellp;
-                NEXTCHAR2_INQUOTES(goodend);
+        if (col_type == COL_TYPE_STRING) {
+            goto parsestring;
+        }
+
+        if (c == '"') {
+            ++nquotes;
+            ++cellp;
+            NEXTCHAR2_INQUOTES(goodend);
 
 #include "parser2_inquotes.h"
 
-            } else {
+        } else {
 
 #include "parser2.h"
 
-            }
+        }
 
+        if (nquotes != 1) {  /* c not in quotes */
             if (c == '\r') {
-                NEXTCHAR2_INQUOTES(goodend);
+                NEXTCHAR_NOQUOTES(goodend);
             }
 
-        goodend:
-
-            if (col_type == COL_TYPE_INT32) {
-                dest = column->arr_ptr + row_idx * sizeof(int32_t);
-                if (p == cellp || fracexpo != 0) {
-                    value = common->missing_int_val;
-                }
-                *((int32_t *)dest) = value;
-            } else if (col_type == COL_TYPE_INT64) {
-                dest = column->arr_ptr + row_idx * sizeof(int64_t);
-                if (p == cellp || fracexpo != 0) {
-                    value = common->missing_int_val;
-                }
-                *((int64_t *)dest) = value;
-            } else {
-                dest = column->arr_ptr + row_idx * sizeof(double);
-                if (p == cellp) {
-                    val = common->missing_float_val;
-                } else if (expo == INT_MIN) {
-                    val = NAN;
-                } else if (value == 0) {
-                    val = 0.0;
-                } else {
-                    int sign;
-                    expo = expo * exposign - fracexpo;
-                    if (value > 0) {
-                        sign = 1;
-                    } else {
-                        sign = -1;
-                        value = -value;
-                    }
-                    FASTCSV_TODOUBLE(sign, value, expo, val);
-                }
-                *((double *)dest) = val;
+            if (c == sep || c == '\n') {
+                goto goodend;
             }
-        } else {  /* string */
+        }
 
-            dest = column->arr_ptr + row_idx * column->width;
-            q = dest;
+    bad:
 
-            if (c == '"') {
-                ++nquotes;
-                ++cellp;
-                /* c is opening quote here */
-                while (1) {
+        if (nquotes == 1) {
+            while (1) {
+                if (c == '\r') {
+                    ++cellp;  /* make width smaller */
+                }
+                ++p;
+                if (p >= buf_end) {
+                    goto badend;
+                }
+                c = *p;
+                if (c == '"') {
+                    ++cellp;
                     ++p;
                     if (p >= buf_end) {
-                        goto atstringend;
+                        goto badend;
                     }
                     c = *p;
-                    if (c == '\r') {
-                        continue;
+                    if (c != '"') {
+                        ++nquotes;
+                        break;
                     }
-                    if (c == '"') {
-                        ++p;
-                        if (p >= buf_end) {
-                            goto atstringend;
-                        }
-                        c = *p;
-                        if (c != '"') {
-                            break;
-                        }
-                    }
-                    *q++ = c;
                 }
             }
-            /* c is non-quoted char here */
+        }
+
+        /* c is first char of string here */
+        while (1) {
+            if (c == sep || c == '\n') {
+                break;
+            }
+            if (c == '\r') {
+                ++cellp;  /* make width smaller */
+            }
+            ++p;
+            if (p >= buf_end) {
+                break;
+            }
+            c = *p;
+        }
+
+    badend:
+        cellp = p;
+
+    goodend:
+
+        if (col_type == COL_TYPE_INT32) {
+            dest = column->arr_ptr + row_idx * sizeof(int32_t);
+            if (p == cellp || fracexpo != 0) {
+                value = common->missing_int_val;
+            }
+            *((int32_t *)dest) = value;
+        } else if (col_type == COL_TYPE_INT64) {
+            dest = column->arr_ptr + row_idx * sizeof(int64_t);
+            if (p == cellp || fracexpo != 0) {
+                value = common->missing_int_val;
+            }
+            *((int64_t *)dest) = value;
+        } else {
+            dest = column->arr_ptr + row_idx * sizeof(double);
+            if (p == cellp) {
+                val = common->missing_float_val;
+            } else if (expo == INT_MIN) {
+                val = NAN;
+            } else if (value == 0) {
+                val = 0.0;
+            } else {
+                int sign;
+                expo = expo * exposign - fracexpo;
+                if (value > 0) {
+                    sign = 1;
+                } else {
+                    sign = -1;
+                    value = -value;
+                }
+                FASTCSV_TODOUBLE(sign, value, expo, val);
+            }
+
+            *((double *)dest) = val;
+        }
+
+        goto comma;
+
+    parsestring:
+        dest = column->arr_ptr + row_idx * column->width;
+        q = dest;
+
+        if (c == '"') {
+            ++nquotes;
+            ++cellp;
+            /* c is opening quote here */
             while (1) {
-                if (c == sep || c == '\n') {
-                    goto atstringend;
-                }
-                if (c != '\r') {
-                    *q++ = c;
-                }
                 ++p;
                 if (p >= buf_end) {
                     goto atstringend;
                 }
                 c = *p;
-            }
-        atstringend:
-            if ((q - dest) < column->width) {
-                memset(q, 0, column->width - (q - dest));
+                if (c == '\r') {
+                    continue;
+                }
+                if (c == '"') {
+                    ++p;
+                    if (p >= buf_end) {
+                        goto atstringend;
+                    }
+                    c = *p;
+                    if (c != '"') {
+                        break;
+                    }
+                }
+                *q++ = c;
             }
         }
+        /* c is non-quoted char here */
+        while (1) {
+            if (c == sep || c == '\n') {
+                goto atstringend;
+            }
+            if (c != '\r') {
+                *q++ = c;
+            }
+            ++p;
+            if (p >= buf_end) {
+                goto atstringend;
+            }
+            c = *p;
+        }
+    atstringend:
+        if ((q - dest) < column->width) {
+            memset(q, 0, column->width - (q - dest));
+        }
 
-    bad:
-    badend:
     comma:
 
         if (p >= buf_end || c == '\n') {

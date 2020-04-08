@@ -24,12 +24,12 @@ def test_load():
     data = 'abc,def,ghi\n123,456,789\n'
 
     with th.TempCsvFile(data) as fname:
-        headers, data = camog.load(fname)
+        headers, cols = camog.load(fname)
 
     assert headers == ['abc', 'def', 'ghi']
-    assert np.all(data[0] == np.array([123]))
-    assert np.all(data[1] == np.array([456]))
-    assert np.all(data[2] == np.array([789]))
+    assert np.all(cols[0] == np.array([123]))
+    assert np.all(cols[1] == np.array([456]))
+    assert np.all(cols[2] == np.array([789]))
 
 
 def test_load_invalid_nthreads():
@@ -63,3 +63,49 @@ def test_load_bad_utf8():
 
     assert isinstance(headers[0], bytes)
     assert headers[0] == bdata
+
+
+def test_col_to_type_str():
+    data = 'abc,def,ghi\n123,456,789\n'
+
+    with th.TempCsvFile(data) as fname:
+        headers, cols = camog.load(fname, col_to_type={'abc': str})
+
+    assert headers == ['abc', 'def', 'ghi']
+    assert cols[0].dtype.kind == 'S'
+    assert np.all(cols[0] == np.array([b'123']))
+    assert cols[1].dtype.kind == 'i'
+    assert np.all(cols[1] == np.array([456]))
+    assert cols[2].dtype.kind == 'i'
+    assert np.all(cols[2] == np.array([789]))
+
+
+def test_col_to_type_int():
+    data = 'abc,def,ghi\n123,456,789\n'
+
+    with th.TempCsvFile(data) as fname:
+        headers, cols = camog.load(fname, col_to_type={1: str})
+
+    assert headers == ['abc', 'def', 'ghi']
+    assert cols[0].dtype.kind == 'i'
+    assert np.all(cols[0] == np.array([123]))
+    assert cols[1].dtype.kind == 'S'
+    assert np.all(cols[1] == np.array([b'456']))
+    assert cols[2].dtype.kind == 'i'
+    assert np.all(cols[2] == np.array([789]))
+
+
+def test_col_to_type_want_float():
+    data = 'abc,def,ghi\naaaaaaaa,bbbbbbbb,123.0\n'
+
+    with th.TempCsvFile(data) as fname:
+        headers, cols = camog.load(fname, missing_float_val=np.nan,
+                                   col_to_type={0: float, 1: float})
+
+    assert headers == ['abc', 'def', 'ghi']
+    assert cols[0].dtype.kind == 'f'
+    assert np.isnan(cols[0][0])
+    assert cols[1].dtype.kind == 'f'
+    assert np.isnan(cols[1][0])
+    assert cols[2].dtype.kind == 'f'
+    assert np.all(cols[2] == np.array([123.0]))
