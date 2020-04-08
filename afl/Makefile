@@ -13,9 +13,9 @@
 # limitations under the License.
 
 CC := clang
-CFLAGS := -Werror -O2 -I../src -I../gensrc
+CFLAGS := -DDEBUG_NOTHREADS -Werror -O2 -I../src -I../gensrc
 
-.PHONY:	clean parser setupfuzz fuzz
+.PHONY:	clean debug parser setupfuzz fuzz
 
 csvread: csvread.o fastcsv.o
 	$(CC) $^ -lpthread -o $@
@@ -24,6 +24,10 @@ csvread.o: csvread.c
 
 fastcsv.o: ../src/fastcsv.c parser
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+debug:
+	make clean
+	make csvread CFLAGS="-DPRINT_RESULT $(CFLAGS)"
 
 parser:
 	cd ..; make parser
@@ -39,5 +43,6 @@ fuzz:
 	make clean
 	AFL_USE_ASAN=1 make csvread CC=$(AFL_DIR)/afl-$(CC)
 	mkdir -p /mnt/afl/testcase_dir
-	/bin/echo -e '1abc,def,ghi\n123,456.0,foo' >/mnt/afl/testcase_dir/test.csv
-	$(AFL_DIR)/afl-fuzz -i /mnt/afl/testcase_dir -o /mnt/afl/findings_dir -m none -- $(CURDIR)/csvread @@
+	cp -av csvread /mnt/afl/
+	/bin/echo -e '\002\003\001\002\003abc,def,ghi\n123,456.0,foo' >/mnt/afl/testcase_dir/test.csv
+	$(AFL_DIR)/afl-fuzz -i /mnt/afl/testcase_dir -o /mnt/afl/findings_dir -m none -- /mnt/afl/csvread @@

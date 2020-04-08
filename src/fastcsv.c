@@ -1059,6 +1059,18 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
         thread_datas[i].common = &common;
     }
 
+#ifdef DEBUG_NOTHREADS
+    for (i = 0; i < nthreads; i++) {
+        parse_stage1(&common, &common.all_chunks[i]);
+    }
+    fixup_parse(&common);
+    allocate_arrays(&common);
+    for (i = 0; i < nthreads; i++) {
+        fill_arrays(&common, &common.all_chunks[i]);
+    }
+
+#else
+
 #ifdef _WIN32
     threads = (HANDLE *)malloc(nthreads * sizeof(HANDLE));
     for (i = 0; i < nthreads; i++) {
@@ -1082,6 +1094,10 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
 
     /* free */
     free(threads);
+
+#endif
+
+    /* free */
     free(thread_datas);
     for (i = 0; i < common.nchunks; i++) {
         chunk_free(&chunks[i]);
