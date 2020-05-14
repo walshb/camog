@@ -208,6 +208,35 @@ def test_nan():
     assert np.all(np.isnan(res[0]))
 
 
+def test_nan_space():
+    csv_str = 'nan  '
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 0, 456.0)[1]
+
+    assert res[0].dtype == float
+    assert np.all(np.isnan(res[0]))
+
+
+def test_inf():
+    csv_str = 'inf'
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 0, 456.0)[1]
+
+    assert res[0].dtype == float
+    assert np.all(np.isinf(res[0]))
+    assert np.all(res[0] > 0.0)
+
+
+def test_minus_inf():
+    csv_str = '-inf'
+
+    res = cfastcsv.parse_csv(csv_str, ',', 1, 0, 0, 0, 456.0)[1]
+
+    assert res[0].dtype == float
+    assert np.all(np.isinf(res[0]))
+    assert np.all(res[0] < 0.0)
+
+
 def test_exact():
     csv_str = '1.0000000000000007'
 

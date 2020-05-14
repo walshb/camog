@@ -32,6 +32,18 @@ def test_load():
     assert np.all(cols[2] == np.array([789]))
 
 
+def test_load_no_final_newline():
+    data = 'abc,def,ghi\n123,456,789'
+
+    with th.TempCsvFile(data) as fname:
+        headers, cols = camog.load(fname)
+
+    assert headers == ['abc', 'def', 'ghi']
+    assert np.all(cols[0] == np.array([123]))
+    assert np.all(cols[1] == np.array([456]))
+    assert np.all(cols[2] == np.array([789]))
+
+
 def test_load_invalid_nthreads():
     data = 'abc,def,ghi\n123,456,789\n'
 

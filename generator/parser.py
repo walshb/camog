@@ -302,26 +302,15 @@ def main():
         mi_frac_digits = _seq(Multiple(SingleChar("(digit = c ^ '0') <= 9 && (-value - 922337203685477580) + ((digit + 7) >> 4) <= 0", "value = value * 10 - digit; ++fracexpo;")),
                               Multiple(SingleChar("(digit = c ^ '0') <= 9", "")))
 
-    pl_mantissa = _seq(Or(plus, Nothing()),
-                       Or(_seq(pl_digit,
-                               pl_int_digits,
-                               Or(_seq(dot,
-                                       pl_frac_digits),
-                                  Nothing())),
-                          _seq(dot,
-                               pl_frac_digit,
-                               pl_frac_digits)))
+    pl_inf_expr = _seq(SingleChar("(c | 32) == 'i'", ""),
+                       SingleChar("(c | 32) == 'n'", ""),
+                       SingleChar("(c | 32) == 'f'",
+                                  tp(change_to_double, "expo = INT_MAX; value = 1;")))
 
-    mi_mantissa = _seq(minus,
-                       Or(_seq(mi_digit,
-                               mi_int_digits,
-                               Or(_seq(dot,
-                                       mi_frac_digits),
-                                  Nothing())),
-                          _seq(dot,
-                               mi_frac_digit,
-                               mi_frac_digits)))
-
+    mi_inf_expr = _seq(SingleChar("(c | 32) == 'i'", ""),
+                       SingleChar("(c | 32) == 'n'", ""),
+                       SingleChar("(c | 32) == 'f'",
+                                  tp(change_to_double, "expo = INT_MAX; value = -1;")))
 
     expo_plus = SingleChar("c == '+'", "")
     expo_minus = SingleChar("c == '-'", p("exposign = -1;"))
@@ -334,19 +323,46 @@ def main():
                 expo_digit,
                 Multiple(expo_digit))
 
-    null_expr = Or(_seq(SingleChar("(c | 32) == 'n'", ""),
-                        SingleChar("(c | 32) == 'a'", ""),
-                        SingleChar("(c | 32) == 'n'",
-                                   tp(change_to_double, "expo = INT_MIN;"))),
-                   Nothing())
+    null_expr = _seq(SingleChar("(c | 32) == 'n'", ""),
+                     SingleChar("(c | 32) == 'a'", ""),
+                     SingleChar("(c | 32) == 'n'",
+                                tp(change_to_double, "expo = INT_MIN;")))
+
+    expo_expr = Or(expo, Nothing())
+
+    pl_number = _seq(Or(plus, Nothing()),
+                     Or(Or(Or(_seq(pl_digit,
+                                   pl_int_digits,
+                                   Or(_seq(dot,
+                                           pl_frac_digits),
+                                      Nothing()),
+                                   expo_expr),
+                              _seq(dot,
+                                   pl_frac_digit,
+                                   pl_frac_digits,
+                                   expo_expr)),
+                           pl_inf_expr),
+                        null_expr))
+
+    mi_number = _seq(minus,
+                     Or(Or(Or(_seq(mi_digit,
+                                   mi_int_digits,
+                                   Or(_seq(dot,
+                                           mi_frac_digits),
+                                      Nothing()),
+                                   expo_expr),
+                              _seq(dot,
+                                   mi_frac_digit,
+                                   mi_frac_digits,
+                                   expo_expr)),
+                           mi_inf_expr),
+                        null_expr))
 
     expr = _seq(spaces,
-                Or(_seq(Or(pl_mantissa,
-                           mi_mantissa),
-                        Or(expo,
-                           Nothing()),
-                        spaces),
-                   null_expr))
+                Or(Or(pl_number,
+                      mi_number),
+                   Nothing()),
+                spaces)
 
     _doparse(args, expr)
 

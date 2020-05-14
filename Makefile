@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY:	all parser clean test benchmark
+.PHONY:	all clean test benchmark
 
 PYTHON ?= python
 CFLAGS ?= -Wall -Werror -Wsign-compare -Wstrict-prototypes -Wstrict-aliasing=0 -Werror=declaration-after-statement

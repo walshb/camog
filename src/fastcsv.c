@@ -351,6 +351,8 @@ fill_arrays(ThreadCommon *common, Chunk *chunk)
                 val = common->missing_float_val;
             } else if (expo == INT_MIN) {
                 val = NAN;
+            } else if (expo == INT_MAX) {
+                val = (value >= 0) ? INFINITY : -INFINITY;
             } else if (value == 0) {
                 val = 0.0;
             } else {
