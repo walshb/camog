@@ -66,11 +66,12 @@ matrix:
       language: shell
       before_install:
         - uname -a
-        - .ci/virtualenv.sh --system-site-packages myenv
+        - PYTHON=python3 .ci/virtualenv.sh --system-site-packages myenv
         - . myenv/bin/activate
+        - ls -l myenv/bin
       install:
         - pip install numpy pytest
       script:
-        - python .ci/build_and_test.py
+        - python3 .ci/build_and_test.py
       after_deploy:
         - /usr/bin/true

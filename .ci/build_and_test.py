@@ -23,6 +23,10 @@ import glob
 
 _TOPDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# With virtual envs, sys.executable is the interpreter with symlinks resolved.
+# But we need the unresolved bin directory. Assume PATH will take us to it.
+_PYTHON = os.path.basename(sys.executable)
+
 
 def _run(cmd, env_vars={}, **kwargs):
     env = os.environ.copy()
@@ -53,7 +57,7 @@ def _build_and_test(cflags):
     _clean()
 
     os.makedirs('gensrc')
-    _run([sys.executable, os.path.join(_TOPDIR, 'generator', 'generate.py')], cwd='gensrc')
+    _run([_PYTHON, os.path.join(_TOPDIR, 'generator', 'generate.py')], cwd='gensrc')
 
     os.chdir('ctests')
 
@@ -79,13 +83,13 @@ def _build_and_test(cflags):
 
     _clean()
 
-    _run([sys.executable, 'setup.py', 'build'], {'CFLAGS': cflags})
+    _run([_PYTHON, 'setup.py', 'build'], {'CFLAGS': cflags})
 
     libdir = os.path.abspath(glob.glob('build' + os.sep + 'lib*')[0])
 
     os.chdir('tests')
 
-    _run([sys.executable, '-m', 'pytest', '-sv', '.'], {'PYTHONPATH': libdir})
+    _run([_PYTHON, '-m', 'pytest', '-sv', '.'], {'PYTHONPATH': libdir})
 
     _clean()
 

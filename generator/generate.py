@@ -18,30 +18,42 @@ import sys
 import os
 import subprocess
 
-mydir = os.path.dirname(__file__)
+_MYDIR = os.path.dirname(__file__)
 
-with open('powers.h', 'w') as fp:
-    subprocess.check_call([sys.executable, os.path.join(mydir, 'powers.py')], stdout=fp)
+# With virtual envs, sys.executable is the interpreter with symlinks resolved.
+# But we need the unresolved bin directory. Assume PATH will take us to it.
+_PYTHON = os.path.basename(sys.executable)
 
-with open('powers5.h', 'w') as fp:
-    subprocess.check_call([sys.executable, os.path.join(mydir, 'powers5.py')], stdout=fp)
 
-subprocess.check_call([sys.executable, os.path.join(mydir, 'parser.py'),
-                       '--type-stage', '--nextchar=NEXTCHAR_NOQUOTES',
-                       '--label-prefix=noquotes',
-                       '--outfilename=parser.h'])
+def main():
+    with open('powers.h', 'w') as fp:
+        subprocess.check_call([_PYTHON, os.path.join(_MYDIR, 'powers.py')], stdout=fp)
 
-subprocess.check_call([sys.executable, os.path.join(mydir, 'parser.py'),
-                       '--type-stage', '--nextchar=NEXTCHAR_INQUOTES',
-                       '--label-prefix=inquotes',
-                       '--outfilename=parser_inquotes.h'])
+    with open('powers5.h', 'w') as fp:
+        subprocess.check_call([_PYTHON, os.path.join(_MYDIR, 'powers5.py')], stdout=fp)
 
-subprocess.check_call([sys.executable, os.path.join(mydir, 'parser.py'),
-                       '--nextchar=NEXTCHAR2_NOQUOTES',
-                       '--label-prefix=noquotes',
-                       '--outfilename=parser2.h'])
+    subprocess.check_call([_PYTHON, os.path.join(_MYDIR, 'parser.py'),
+                           '--type-stage', '--nextchar=NEXTCHAR_NOQUOTES',
+                           '--label-prefix=noquotes',
+                           '--outfilename=parser.h'])
 
-subprocess.check_call([sys.executable, os.path.join(mydir, 'parser.py'),
-                       '--nextchar=NEXTCHAR2_INQUOTES',
-                       '--label-prefix=inquotes',
-                       '--outfilename=parser2_inquotes.h'])
+    subprocess.check_call([_PYTHON, os.path.join(_MYDIR, 'parser.py'),
+                           '--type-stage', '--nextchar=NEXTCHAR_INQUOTES',
+                           '--label-prefix=inquotes',
+                           '--outfilename=parser_inquotes.h'])
+
+    subprocess.check_call([_PYTHON, os.path.join(_MYDIR, 'parser.py'),
+                           '--nextchar=NEXTCHAR2_NOQUOTES',
+                           '--label-prefix=noquotes',
+                           '--outfilename=parser2.h'])
+
+    subprocess.check_call([_PYTHON, os.path.join(_MYDIR, 'parser.py'),
+                           '--nextchar=NEXTCHAR2_INQUOTES',
+                           '--label-prefix=inquotes',
+                           '--outfilename=parser2_inquotes.h'])
+
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

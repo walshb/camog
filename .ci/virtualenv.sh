@@ -14,15 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+PYTHON=${PYTHON:-python3}
+
 if ! which virtualenv
 then
     PREFIX=$(/bin/pwd)/_virtualenv
     mkdir -p $PREFIX
-    pip install --prefix=$PREFIX virtualenv || exit 1
+    $PYTHON -m pip install --prefix=$PREFIX virtualenv || exit 1
     PYTHONPATH=$(echo $PREFIX/lib/*/site-packages)
     PATH=$PREFIX/bin:$PATH
     export PYTHONPATH PATH
     which virtualenv
 fi
 
-exec virtualenv "$@"
+exec virtualenv -p $PYTHON "$@"
