@@ -51,10 +51,10 @@ int osx_pthread_barrier_destroy(osx_pthread_barrier_t *barrier)
 #else
     int rc;
 
-    if ((rc = pthread_cond_destroy(&barrier->cond)) < 0) {
+    if ((rc = pthread_cond_destroy(&barrier->cond)) != 0) {
         return rc;
     }
-    if ((rc = pthread_mutex_destroy(&barrier->mutex)) < 0) {
+    if ((rc = pthread_mutex_destroy(&barrier->mutex)) != 0) {
         return rc;
     }
 #endif
@@ -71,10 +71,10 @@ int osx_pthread_barrier_init(osx_pthread_barrier_t *barrier,
 #else
     int rc;
 
-    if ((rc = pthread_mutex_init(&barrier->mutex, NULL)) < 0) {
+    if ((rc = pthread_mutex_init(&barrier->mutex, NULL)) != 0) {
         return rc;
     }
-    if ((rc = pthread_cond_init(&barrier->cond, NULL)) < 0) {
+    if ((rc = pthread_cond_init(&barrier->cond, NULL)) != 0) {
         pthread_mutex_destroy(&barrier->mutex);
         return rc;
     }
@@ -96,7 +96,7 @@ int osx_pthread_barrier_wait(osx_pthread_barrier_t *barrier)
 #else
     int rc;
 
-    if ((rc = pthread_mutex_lock(&barrier->mutex)) < 0) {
+    if ((rc = pthread_mutex_lock(&barrier->mutex)) != 0) {
         return rc;
     }
 #endif
@@ -108,7 +108,7 @@ int osx_pthread_barrier_wait(osx_pthread_barrier_t *barrier)
 #ifdef _WIN32
         WakeAllConditionVariable(&barrier->cond);
 #else
-        if ((rc = pthread_cond_broadcast(&barrier->cond)) < 0) {
+        if ((rc = pthread_cond_broadcast(&barrier->cond)) != 0) {
             return rc;
         }
 #endif
@@ -121,7 +121,7 @@ int osx_pthread_barrier_wait(osx_pthread_barrier_t *barrier)
                 return OSX_PTHREAD_BARRIER_SERIAL_THREAD - 1;  /* another -ve number */
             }
 #else
-            if ((rc = pthread_cond_wait(&barrier->cond, &barrier->mutex)) < 0) {
+            if ((rc = pthread_cond_wait(&barrier->cond, &barrier->mutex)) != 0) {
                 return rc;
             }
 #endif
@@ -132,7 +132,7 @@ int osx_pthread_barrier_wait(osx_pthread_barrier_t *barrier)
 #ifdef _WIN32
     LeaveCriticalSection(&barrier->mutex);
 #else
-    if ((rc = pthread_mutex_unlock(&barrier->mutex)) < 0) {
+    if ((rc = pthread_mutex_unlock(&barrier->mutex)) != 0) {
         return rc;
     }
 #endif

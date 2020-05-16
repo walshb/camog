@@ -181,7 +181,7 @@ py_parse_csv(const uchar *csv_buf, size_t buf_len, PyObject *sep_obj, int nthrea
     result.columns = PyList_New(0);
     result.col_to_type = col_to_type;
 
-    if (parse_csv(&input, (FastCsvResult *)&result) < 0) {
+    if (parse_csv(&input, (FastCsvResult *)&result) != 0) {
         return NULL;
     }
 
