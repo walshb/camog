@@ -15,6 +15,8 @@
 cmake_minimum_required(VERSION 2.8.9)
 project(ctests)
 find_package(Threads REQUIRED)
-add_executable(test_floats test_floats.c ${CMAKE_CURRENT_LIST_DIR}/../src/fastcsv.c)
+add_executable(test_floats test_floats.c
+                           ${CMAKE_CURRENT_LIST_DIR}/../src/fastcsv.c
+                           ${CMAKE_CURRENT_LIST_DIR}/../src/mtq.c)
 include_directories(${CMAKE_CURRENT_LIST_DIR}/../gensrc ${CMAKE_CURRENT_LIST_DIR}/../src)
 target_link_libraries(test_floats Threads::Threads)

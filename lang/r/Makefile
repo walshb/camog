@@ -24,7 +24,7 @@ clean:
 setup:
 	mkdir -p build/libs
 	cp -rv camog build/
-	cp ../../src/fastcsv.c ../../src/*.h build/camog/src/
+	cp ../../src/fastcsv.c ../../src/mtq.c ../../src/*.h build/camog/src/
 	cp ../../LICENSE build/camog/
 	cd build/camog/src; $(CURDIR)/../../generator/generate.py
 

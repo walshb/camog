@@ -21,15 +21,15 @@
 #include <pthread.h>
 #endif
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 #include <math.h>
 
-#include "osx_pthread_barrier.h"
-
 #include "fastcsv.h"
 #include "fastcsv_todouble.h"
+#include "mtq.h"
 
 #define LINKED_MAX 1024
 
@@ -76,8 +76,6 @@ typedef struct {
     int nchunks;
     Chunk *all_chunks;
     Chunk *bigchunk;  /* for quoted string fixup */
-    pthread_barrier_t barrier1;
-    pthread_barrier_t barrier2;
     int flags;
     int *str_idxs;
     int n_str_cols;
@@ -88,9 +86,23 @@ typedef struct {
 } ThreadCommon;
 
 typedef struct {
+    int stage;
     Chunk *chunk;
     ThreadCommon *common;
 } ThreadData;
+
+typedef struct {
+    int nthreads;
+#ifdef _WIN32
+    HANDLE *threads;
+#else
+    pthread_t *threads;
+#endif
+    JobQueue inqueue;
+    JobQueue outqueue;
+} Reader;
+
+static Reader reader = {0};
 
 #define MAXLINE 256
 
@@ -855,44 +867,23 @@ static void *
 #endif
 parse_thread(void *data)
 {
-    ThreadData *thread_data = (ThreadData *)data;
+    Reader *reader = (Reader *)data;
 
-    ThreadCommon *common = thread_data->common;
+    while (1) {
+        ThreadData *thread_data = queue_pop(&reader->inqueue);
 
-#ifndef DEBUG_SERIAL
-    Chunk *chunk = thread_data->chunk;
-    parse_stage1(common, chunk);
-#ifdef DEBUG_COUNT
-    return NULL;
-#endif
-#else
-    int i;
-#endif
+        ThreadCommon *common = thread_data->common;
 
-    if (pthread_barrier_wait(&common->barrier1) == PTHREAD_BARRIER_SERIAL_THREAD) {
-        /* single-threaded here */
-#ifdef DEBUG_SERIAL
-        for (i = 0; i < common->nchunks; i++) {
-            parse_stage1(common, &common->all_chunks[i]);
+        Chunk *chunk = thread_data->chunk;
+
+        if (thread_data->stage == 1) {
+            parse_stage1(common, chunk);
+        } else {
+            fill_arrays(common, chunk);
         }
-#ifdef DEBUG_COUNT
-        return NULL;
-#endif
-#endif
-        fixup_parse(common);
-        allocate_arrays(common);
-#ifdef DEBUG_SERIAL
-        for (i = 0; i < common->nchunks; i++) {
-            fill_arrays(common, &common->all_chunks[i]);
-        }
-#endif
+
+        queue_push(&reader->outqueue, thread_data);
     }
-
-    pthread_barrier_wait(&common->barrier2);
-
-#ifndef DEBUG_SERIAL
-    fill_arrays(common, chunk);
-#endif
 
 #ifdef _WIN32
     return 0;
@@ -1010,11 +1001,6 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
     Chunk *chunks;
     ThreadData *thread_datas;
     ThreadCommon common;
-#ifdef _WIN32
-    HANDLE *threads;
-#else
-    pthread_t *threads;
-#endif
 
     buf_end = input->csv_buf + buf_len;
 
@@ -1029,8 +1015,6 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
     common.result = res;
     common.missing_int_val = input->missing_int_val;
     common.missing_float_val = input->missing_float_val;
-    pthread_barrier_init(&common.barrier1, NULL, nthreads);
-    pthread_barrier_init(&common.barrier2, NULL, nthreads);
 
     if (input->nheaders) {
         data_begin = parse_headers(&common, input->csv_buf, buf_end);
@@ -1073,33 +1057,51 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
 
 #else
 
+    if (reader.nthreads < nthreads) {
+        if (reader.nthreads == 0) {
+            queue_init(&reader.inqueue);
+            queue_init(&reader.outqueue);
+            reader.threads = NULL;
+        }
 #ifdef _WIN32
-    threads = (HANDLE *)malloc(nthreads * sizeof(HANDLE));
-    for (i = 0; i < nthreads; i++) {
-        threads[i] = (HANDLE)_beginthreadex(NULL, 0, parse_thread, (void *)&thread_datas[i], 0, NULL);
-    }
-
-    for (i = 0; i < nthreads; i++) {
-        WaitForSingleObject(threads[i], INFINITE);
-        CloseHandle(threads[i]);
-    }
+        reader.threads = (HANDLE *)realloc(reader.threads, nthreads * sizeof(HANDLE));
+        for (i = reader.nthreads; i < nthreads; i++) {
+            reader.threads[i] = (HANDLE)_beginthreadex(NULL, 0, parse_thread,
+                                                       (void *)&reader, 0, NULL);
+        }
 #else
-    threads = (pthread_t *)malloc(nthreads * sizeof(pthread_t));
-    for (i = 0; i < nthreads; i++) {
-        pthread_create(&threads[i], NULL, parse_thread, (void *)&thread_datas[i]);
+        reader.threads = (pthread_t *)realloc(reader.threads, nthreads * sizeof(pthread_t));
+        for (i = reader.nthreads; i < nthreads; i++) {
+            if ((rc = pthread_create(&reader.threads[i], NULL,
+                                     parse_thread, (void *)&reader)) != 0) {
+                return rc;
+            }
+        }
+#endif
+        reader.nthreads = nthreads;
     }
 
+    queue_reset(&reader.inqueue, nthreads * 2);
+    queue_reset(&reader.outqueue, nthreads * 2);
     for (i = 0; i < nthreads; i++) {
-        pthread_join(threads[i], NULL);
+        thread_datas[i].stage = 1;
+        queue_push(&reader.inqueue, &thread_datas[i]);
     }
-#endif
+    for (i = 0; i < nthreads; i++) {
+        queue_pop(&reader.outqueue);
+    }
+    fixup_parse(&common);
+    allocate_arrays(&common);
+    for (i = 0; i < nthreads; i++) {
+        thread_datas[i].stage = 2;
+        queue_push(&reader.inqueue, &thread_datas[i]);
+    }
+    for (i = 0; i < nthreads; i++) {
+        queue_pop(&reader.outqueue);
+    }
 
-    /* free */
-    free(threads);
+#endif  /* DEBUG_NOTHREADS */
 
-#endif
-
-    /* free */
     free(thread_datas);
     for (i = 0; i < common.nchunks; i++) {
         chunk_free(&chunks[i]);
@@ -1113,9 +1115,6 @@ parse_csv(const FastCsvInput *input, FastCsvResult *res)
 
     free(chunks);
     free(common.str_idxs);
-
-    pthread_barrier_destroy(&common.barrier1);
-    pthread_barrier_destroy(&common.barrier2);
 
     return rc;
 }

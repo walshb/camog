@@ -26,6 +26,7 @@ exec(open('camog/_version.py').read())  # pylint: disable=exec-used
 
 ext_modules = [Extension('camog._cfastcsv',
                          ['src/fastcsv.c',
+                          'src/mtq.c',
                           'src/pyfastcsv.c'],
                          include_dirs=['gensrc', np.get_include()])]
 

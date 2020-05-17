@@ -17,12 +17,15 @@ CFLAGS := -DDEBUG_NOTHREADS -Werror -O2 -I../src -I../gensrc
 
 .PHONY:	clean debug parser setupfuzz fuzz
 
-csvread: csvread.o fastcsv.o
+csvread: csvread.o fastcsv.o mtq.o
 	$(CC) $^ -lpthread -o $@
 
 csvread.o: csvread.c
 
 fastcsv.o: ../src/fastcsv.c parser
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+mtq.o:	../src/mtq.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 debug:

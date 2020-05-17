@@ -12,5 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-camogrc.so: camogr.o fastcsv.o
+camogrc.so: camogr.o fastcsv.o mtq.o
 	R CMD SHLIB -o $@ $^
