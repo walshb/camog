@@ -26,7 +26,7 @@ deploy:
   username: "__token__"
   password:
     secure: VAagcSeW2R3ApP94vjXYwlMv0KGc5wpPW5i3VPjHsApUmtnepMHtva9lnlGhMSQkuvPcCH1ve3o89FvF3Isr57ENCXTwB5HmLvblgFCr+q+2PMxYl8UC5BqbysId/0CfzeGX0FM5niWR7Y4pPtsBPj9nXkTeaRybK660/8HMyqPdoxYV3EQGINWmBTujhNkyWbV1b+EpHGdmyfxLIx3Ab3EJrnPotpFlu+dCW5tV2CtGbwfUaVYeuATDYd3e1oFCxW5BPf4ww3wcSQ9pa7Ozz53pN8ao+XOtIil1UVyekU+N8GXTE5mGLPDX2mdRneH5JwtWBojORH5xk2cQVjDZQT//++ngirZSsGTRQyg/yOSahrksaIZzliapwfXQlduo0uLtFtneeKYwD84CC8aHpKvZmeJv2h+87x8Ah/4ApbVFqkigng0hamFn7fMWnld3TuTDaeOtlyxXyGNC9QpLJ7kzGTw5aeezW1HgFbZwEHPmL+0y4zdkeIjIqQIeaS5qlmvJEJVzDLVWl4hnOXUGqh/R+cdxORJMkk9pBjaadONI2513roswL8elFBl5XiD8s+wLHaWtDFY46k4vBiI7HOEvowyfP1zlyVkK5TJWt3d22Yk0dLkEDoulTE6cLKXAG21Lu2v+TaVmJ9yRRYYm8d7+XaM0k5/9eKkecgL31no=
-  distributions: "sdist bdist_egg"
+  distributions: "sdist bdist_wheel"
   skip_cleanup: true
   on:
     tags: true
