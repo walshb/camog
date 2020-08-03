@@ -42,6 +42,8 @@ if ! $PYTHON -c 'import paratext'
 then
     cd $PKGDIR/build/paratext/python
     which swig
+    # fix bug
+    sed -e 's|splitunc|splitdrive|g' -i paratext/core.py
     $PYTHON setup.py build install --prefix=$PKGDIR
 fi
 
