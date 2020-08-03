@@ -83,7 +83,8 @@ def _build_and_test(cflags):
 
     _clean()
 
-    _run([_PYTHON, 'setup.py', 'build'], {'CFLAGS': cflags})
+    # test bdist_wheel too.
+    _run([_PYTHON, 'setup.py', 'build', 'bdist_wheel'], {'CFLAGS': cflags})
 
     libdir = os.path.abspath(glob.glob('build' + os.sep + 'lib*')[0])
 

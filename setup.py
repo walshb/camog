@@ -70,3 +70,14 @@ setup(name='camog',
       tests_require=['pytest'],
       packages=['camog'],
       ext_modules=ext_modules)
+
+if os.environ.get('TRAVIS'):
+    for in_fname in os.listdir('dist'):
+        if not in_fname.endswith('.whl') or 'manylinux' in in_fname:
+            continue
+        subprocess.check_call(['auditwheel', 'repair',
+                               os.path.join('dist', in_fname)])
+        os.remove(os.path.join('dist', in_fname))
+        for out_fname in os.listdir('wheelhouse'):
+            os.rename(os.path.join('wheelhouse', out_fname),
+                      os.path.join('dist', out_fname))

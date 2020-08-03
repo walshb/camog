@@ -26,5 +26,5 @@ build_script:
   - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
   - python --version
   - python -c "import struct; print(struct.calcsize('P') * 8)"
-  - pip install numpy pytest
+  - pip install auditwheel numpy pytest wheel
   - python .ci\build_and_test.py

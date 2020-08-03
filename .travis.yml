@@ -16,11 +16,13 @@ addons:
   apt:
     packages:
       - pandoc
+      - patchelf
       - libpcre3
 install:
-  - pip install cython numpy pytest
+  - pip install auditwheel cython numpy pytest
 script:
   - python .ci/build_and_test.py
+  - ls -l dist
 deploy:
   provider: pypi
   username: "__token__"
