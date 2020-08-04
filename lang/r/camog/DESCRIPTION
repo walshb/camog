@@ -1,7 +1,7 @@
 Package: camog
 Type: Package
 Title: A fast csv reader
-Version: 0.2.2
+Version: 0.2.3
 Date: 2017-08-01
 Author: Ben Walsh
 Maintainer: Ben Walsh <b@wumpster.com>
